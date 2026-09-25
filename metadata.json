@@ -1,0 +1,6 @@
+{
+  "name": "Solution for You - အဖြေက ဒီမှာပါ",
+  "description": "ဘန်ကောက်မြို့ရှိ မြန်မာမိတ်ဆွေများအတွက် ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်အကောင့်၊ နေထိုင်ရေးနှင့် အထွေထွေ အကူအညီပေးရေး ဝန်ဆောင်မှု။",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
