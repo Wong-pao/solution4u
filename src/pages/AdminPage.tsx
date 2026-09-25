@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Post, Service, SiteSettings } from '../types';
-import { SUPABASE_SQL_SCHEMA, isSupabaseConfigured } from '../lib/supabase';
+import {
+  SUPABASE_SQL_SCHEMA,
+  isSupabaseConfigured,
+  uploadPostImage,
+  migrateLocalPostsToSupabase,
+  generateUuid
+} from '../lib/supabase';
 import { generateClientSideSourceZip } from '../lib/projectExporter';
 import {
   ShieldCheck,
@@ -33,6 +39,7 @@ import {
 export const AdminPage: React.FC = () => {
   const {
     isAdminLoggedIn,
+    adminUserEmail,
     loginAdmin,
     logoutAdmin,
     posts,
@@ -43,11 +50,14 @@ export const AdminPage: React.FC = () => {
     settings,
     updateSettings,
     categories,
-    navigateTo
+    navigateTo,
+    refreshData
   } = useApp();
 
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [loginError, setLoginError] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'posts' | 'new-post' | 'copy-editor' | 'branding' | 'services' | 'settings' | 'database'>('posts');
 
   // Editing state for posts
@@ -83,6 +93,32 @@ export const AdminPage: React.FC = () => {
   const [downloadErrorMsg, setDownloadErrorMsg] = useState<string | null>(null);
   const [copiedDirectLink, setCopiedDirectLink] = useState(false);
 
+  // Supabase Cover Image Upload & Post Save states
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverUploadSuccess, setCoverUploadSuccess] = useState<string | null>(null);
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
+  const [isSavingPost, setIsSavingPost] = useState(false);
+  const [postSaveSuccess, setPostSaveSuccess] = useState<string | null>(null);
+  const [postSaveError, setPostSaveError] = useState<string | null>(null);
+
+  // Supabase Migration states
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<string | null>(null);
+
+  const handleRunMigration = async () => {
+    setIsMigrating(true);
+    setMigrationStatus('Local Posts များကို Supabase သို့ ကူးယူနေပါသည်...');
+    try {
+      const result = await migrateLocalPostsToSupabase();
+      setMigrationStatus(result.message);
+      await refreshData();
+    } catch (err: any) {
+      setMigrationStatus(`Migration မအောင်မြင်ပါ: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   const handleClientSideZipDownload = async () => {
     setIsExportingClientZip(true);
     setDownloadSuccessMsg(null);
@@ -115,15 +151,27 @@ export const AdminPage: React.FC = () => {
   const directSourceUrl = typeof window !== 'undefined' ? `${window.location.origin}/solution-for-you-source.zip` : '';
 
 
-  // Handle Admin Login
-  const handleLogin = (e: React.FormEvent) => {
+  // Handle Admin Login with Supabase Auth (or offline fallback)
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = loginAdmin(passwordInput);
-    if (!ok) {
-      setLoginError(true);
-    } else {
-      setLoginError(false);
-      setPasswordInput('');
+    setIsLoggingIn(true);
+    setLoginErrorMessage(null);
+    try {
+      const res = await loginAdmin({
+        email: emailInput.trim(),
+        password: passwordInput,
+      });
+
+      if (!res.success) {
+        setLoginErrorMessage(res.error || 'အကောင့်ဝင်ရောက်မှု မအောင်မြင်ပါ။');
+      } else {
+        setEmailInput('');
+        setPasswordInput('');
+      }
+    } catch (err: any) {
+      setLoginErrorMessage(err.message || 'အကောင့်ဝင်ရောက်မှု မအောင်မြင်ပါ။');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -156,17 +204,50 @@ export const AdminPage: React.FC = () => {
     setFormTags('ဗီဇာ, စာရွက်စာတမ်း');
   };
 
-  // Helper for image upload -> data URL conversion
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, targetField: 'postCover' | 'logo' | 'fbCover' | 'fbProfile') => {
+  // Helper for image upload -> Supabase Storage (blog-images) or local preview fallback
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetField: 'postCover' | 'logo' | 'fbCover' | 'fbProfile') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (targetField === 'postCover') {
+      if (isSupabaseConfigured) {
+        setIsUploadingCover(true);
+        setCoverUploadError(null);
+        setCoverUploadSuccess(null);
+        try {
+          const publicUrl = await uploadPostImage(file);
+          setFormCoverImage(publicUrl);
+          setCoverUploadSuccess('Supabase Storage ("blog-images") သို့ ပုံတင်ပြီးပါပြီ');
+          setTimeout(() => setCoverUploadSuccess(null), 4000);
+        } catch (err: any) {
+          console.error('Supabase Storage upload notice:', err);
+          setCoverUploadError(`Supabase Storage သို့ ပုံတင်မရပါ (${err.message || 'Error'}) - Local preview ပြသထားပါသည်`);
+          // Fallback to local Data URL so user is never blocked
+          const reader = new FileReader();
+          reader.onload = () => {
+            setFormCoverImage(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        } finally {
+          setIsUploadingCover(false);
+        }
+        return;
+      }
+
+      // If Supabase not yet configured, local preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFormCoverImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Logo & branding
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      if (targetField === 'postCover') {
-        setFormCoverImage(dataUrl);
-      } else if (targetField === 'logo') {
+      if (targetField === 'logo') {
         setSettingsForm((prev) => ({ ...prev, logoUrl: dataUrl }));
       } else if (targetField === 'fbCover') {
         setSettingsForm((prev) => ({ ...prev, facebookCoverUrl: dataUrl }));
@@ -196,6 +277,9 @@ export const AdminPage: React.FC = () => {
     e.preventDefault();
     if (!formTitle.trim()) return;
 
+    setIsSavingPost(true);
+    setPostSaveError(null);
+
     const generatedSlug =
       formSlug.trim() ||
       formTitle
@@ -206,7 +290,7 @@ export const AdminPage: React.FC = () => {
       'post-' + Date.now();
 
     const postToSave: Post = {
-      id: editingPost ? editingPost.id : 'post_' + Date.now(),
+      id: editingPost ? editingPost.id : generateUuid(),
       title: formTitle.trim(),
       slug: generatedSlug,
       excerpt: formExcerpt.trim(),
@@ -224,9 +308,22 @@ export const AdminPage: React.FC = () => {
       readTimeMinutes: Number(formReadTime) || 4,
     };
 
-    await savePost(postToSave);
-    handleResetForm();
-    setActiveTab('posts');
+    try {
+      await savePost(postToSave);
+      setPostSaveSuccess(
+        isSupabaseConfigured
+          ? 'ဆောင်းပါးကို Supabase Cloud Database ပေါ်သို့ အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ!'
+          : 'ဆောင်းပါးကို LocalStorage ထဲသို့ သိမ်းဆည်းပြီးပါပြီ (Local Fallback Mode)'
+      );
+      handleResetForm();
+      setActiveTab('posts');
+      setTimeout(() => setPostSaveSuccess(null), 4000);
+    } catch (err: any) {
+      console.error('Failed to save post:', err);
+      setPostSaveError(`ဆောင်းပါးသိမ်းဆည်းရာတွင် အမှားဖြစ်ပေါ်ပါသည်: ${err.message || 'Error'}`);
+    } finally {
+      setIsSavingPost(false);
+    }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -247,46 +344,83 @@ export const AdminPage: React.FC = () => {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-4 py-16">
         <div className="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200 shadow-xl max-w-md w-full space-y-6 text-center">
-          <div className="w-16 h-16 bg-sky-100 text-sky-700 rounded-2xl flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 bg-sky-100 text-sky-700 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
             <Lock className="w-8 h-8" />
           </div>
 
           <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[11px] font-bold mb-2">
+              <ShieldCheck className="w-3 h-3 text-sky-600" />
+              <span>{isSupabaseConfigured ? 'Supabase Auth Protected' : 'Supabase Not Configured'}</span>
+            </div>
             <h1 className="text-xl font-bold text-slate-900">Admin Portal Login</h1>
             <p className="text-xs text-slate-500 mt-1 font-burmese">
               စာသားများ၊ ဆောင်းပါးများ၊ Logo နှင့် Facebook ပုံများ စီမံရန်
             </p>
           </div>
 
+          {loginErrorMessage && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 text-left font-burmese flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{loginErrorMessage}</span>
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4 text-left">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Admin အီးမေးလ် (Email)
+              </label>
+              <input
+                type="email"
+                required
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="admin@example.com"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-hidden text-sm"
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Admin စကားဝှက် (Password)
               </label>
               <input
                 type="password"
+                required
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 placeholder="စကားဝှက် ရိုက်ထည့်ပါ..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-hidden text-sm"
               />
-              {loginError && (
-                <p className="text-xs text-rose-500 mt-1 font-burmese">
-                  စကားဝှက် မှားယွင်းနေပါသည်။ (Default: solution4u)
-                </p>
-              )}
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm rounded-xl transition-colors shadow-xs"
+              disabled={isLoggingIn}
+              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm rounded-xl transition-colors shadow-xs disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
             >
-              အကောင့်ဝင်မည်
+              {isLoggingIn ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>အကောင့်စစ်ဆေးနေပါသည်...</span>
+                </>
+              ) : (
+                <span>အကောင့်ဝင်မည်</span>
+              )}
             </button>
           </form>
 
           <div className="pt-2 border-t border-slate-100 text-xs text-slate-400">
-            <p>Demo Password: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono">solution4u</code></p>
+            {isSupabaseConfigured ? (
+              <p className="font-burmese text-[11px] text-slate-500">
+                💡 Supabase Dashboard &gt; Authentication &gt; Users တွင် ဖန်တီးထားသော Admin အကောင့်ဖြင့် ဝင်ရောက်ပါ
+              </p>
+            ) : (
+              <p className="text-[11px] text-rose-500 font-medium font-sans">
+                ⚠️ Supabase Authentication is not configured. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -318,6 +452,13 @@ export const AdminPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {adminUserEmail && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-600">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="truncate max-w-[180px]">{adminUserEmail}</span>
+            </span>
+          )}
+
           <button
             onClick={() => navigateTo('home')}
             className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors font-burmese"
@@ -327,7 +468,7 @@ export const AdminPage: React.FC = () => {
 
           <button
             onClick={logoutAdmin}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>ထွက်မည်</span>
@@ -414,6 +555,21 @@ export const AdminPage: React.FC = () => {
       {/* Tab 1: POSTS LIST */}
       {activeTab === 'posts' && (
         <div className="space-y-4">
+          {postSaveSuccess && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between font-burmese shadow-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{postSaveSuccess}</span>
+              </div>
+              <button
+                onClick={() => setPostSaveSuccess(null)}
+                className="text-emerald-700 hover:text-emerald-900 text-xs underline font-sans"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900 font-burmese">
               ထုတ်ဝေထားသော Contents & ဆောင်းပါးများ
@@ -647,8 +803,32 @@ export const AdminPage: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-800">
                   ဆောင်းပါး မျက်နှာဖုံးဓာတ်ပုံ (Cover Photo)
                 </label>
-                <span className="text-[11px] text-slate-500">Device ပေါ်မှ ပုံရွေးချယ်နိုင်ပါသည်</span>
+                <span className="text-[11px] text-slate-500">
+                  {isSupabaseConfigured
+                    ? '☁️ Supabase Storage ("blog-images") သို့ တိုက်ရိုက် Upload လုပ်ပေးပါသည်'
+                    : 'Device ပေါ်မှ ပုံရွေးချယ်နိုင်ပါသည်'}
+                </span>
               </div>
+
+              {/* Upload state indicators */}
+              {isUploadingCover && (
+                <div className="p-2.5 rounded-xl bg-sky-100/70 border border-sky-200 text-sky-800 text-xs flex items-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                  <span>Supabase Storage ("blog-images") သို့ ပုံတင်နေပါသည်...</span>
+                </div>
+              )}
+              {coverUploadSuccess && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{coverUploadSuccess}</span>
+                </div>
+              )}
+              {coverUploadError && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>{coverUploadError}</span>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {formCoverImage && (
@@ -662,10 +842,11 @@ export const AdminPage: React.FC = () => {
                 <div className="space-y-2 flex-1">
                   <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-xs">
                     <Upload className="w-3.5 h-3.5 text-sky-600" />
-                    <span>ဖုန်း/ကွန်ပျူတာမှ ဓာတ်ပုံရွေးချယ်မည်</span>
+                    <span>{isUploadingCover ? 'Uploading...' : 'ဖုန်း/ကွန်ပျူတာမှ ဓာတ်ပုံရွေးချယ်မည်'}</span>
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={isUploadingCover}
                       onChange={(e) => handleFileUpload(e, 'postCover')}
                       className="hidden"
                     />
@@ -743,19 +924,35 @@ export const AdminPage: React.FC = () => {
               </div>
             </div>
 
+            {postSaveError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{postSaveError}</span>
+              </div>
+            )}
+
             <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setActiveTab('posts')}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
+                disabled={isSavingPost}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-50"
               >
                 မသိမ်းဘဲ ပြန်ထွက်မည်
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                disabled={isSavingPost || isUploadingCover}
+                className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs disabled:opacity-60 flex items-center gap-2 cursor-pointer"
               >
-                {editingPost ? 'ပြင်ဆင်ချက် သိမ်းဆည်းမည်' : 'ဆောင်းပါး အသစ် တင်မည်'}
+                {isSavingPost ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>သိမ်းဆည်းနေပါသည်...</span>
+                  </>
+                ) : (
+                  <span>{editingPost ? 'ပြင်ဆင်ချက် သိမ်းဆည်းမည်' : 'ဆောင်းပါး အသစ် တင်မည်'}</span>
+                )}
               </button>
             </div>
           </form>
@@ -1342,6 +1539,52 @@ export const AdminPage: React.FC = () => {
               Resilient LocalStorage ဖြင့် ချက်ချင်း အလုပ်လုပ်နေပါသည်။ Supabase Cloud Database သို့ တိုက်ရိုက် ချိတ်ဆက်လိုပါက 
               အောက်ပါ SQL Script ကို ကူးယူပြီး Supabase Project &gt; SQL Editor တွင် Run ပေးရုံသာ ဖြစ်ပါသည်။
             </p>
+          </div>
+
+          {/* Supabase One-Click Data Migration Tool */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 space-y-3 font-burmese">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <span>LocalStorage မှ Posts များကို Supabase သို့ Synchronize / Migrate ပြုလုပ်ရန်</span>
+                </h3>
+                <p className="text-xs text-slate-600 mt-1">
+                  Browser ထဲရှိ လက်ရှိဆောင်းပါးများကို Supabase Cloud Table သို့ လုံခြုံစွာ ကူးယူထည့်သွင်းပေးပါမည် (Duplicate မဖြစ်အောင် စစ်ဆေးပေးပါသည်)။
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRunMigration}
+                disabled={isMigrating || !isSupabaseConfigured}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
+              >
+                {isMigrating ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Migrating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Migrate Posts to Supabase</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {migrationStatus && (
+              <div className="p-3 bg-white rounded-xl border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{migrationStatus}</span>
+              </div>
+            )}
+            {!isSupabaseConfigured && (
+              <p className="text-[11px] text-amber-700">
+                ℹ️ Supabase Environment Variables (URL & Anon Key) ထည့်သွင်းပြီးမှသာ Cloud Sync ခလုတ်ကို နှိပ်နိုင်ပါမည်။
+              </p>
+            )}
           </div>
 
           {/* GitHub & Netlify Environment Variables Guide */}

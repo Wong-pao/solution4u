@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Post, Service, SiteSettings, Category, ConsultationInquiry } from '../types';
-import { dataStore } from '../lib/supabase';
+import {
+  dataStore,
+  supabase,
+  isSupabaseConfigured,
+  loginAdminWithSupabase,
+  logoutAdminWithSupabase
+} from '../lib/supabase';
 import { INITIAL_SETTINGS } from '../data/initialData';
 
 export type AppRoute = 'home' | 'about' | 'services' | 'service-detail' | 'blog' | 'blog-detail' | 'contact' | 'admin';
@@ -14,9 +20,10 @@ interface AppContextType {
   categories: Category[];
   settings: SiteSettings;
   isLoading: boolean;
+  adminUserEmail: string | null;
   isAdminLoggedIn: boolean;
-  loginAdmin: (pass: string) => boolean;
-  logoutAdmin: () => void;
+  loginAdmin: (credentials: { email?: string; password: string }) => Promise<{ success: boolean; error?: string }>;
+  logoutAdmin: () => Promise<void>;
   refreshData: () => Promise<void>;
   savePost: (post: Post) => Promise<void>;
   deletePost: (id: string) => Promise<void>;
@@ -39,6 +46,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<SiteSettings>(INITIAL_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminUserEmail, setAdminUserEmail] = useState<string | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [isConsultModalOpen, setIsConsultModalOpen] = useState(false);
   const [consultServicePreselect, setConsultServicePreselect] = useState('');
@@ -120,25 +128,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshData();
-    const adminSession = localStorage.getItem('solution4u_admin_session');
-    if (adminSession === 'active') {
-      setIsAdminLoggedIn(true);
+
+    if (isSupabaseConfigured && supabase) {
+      // 1. Check existing Supabase session on startup
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (!error && session?.user) {
+          setIsAdminLoggedIn(true);
+          setAdminUserEmail(session.user.email || null);
+        } else {
+          setIsAdminLoggedIn(false);
+          setAdminUserEmail(null);
+        }
+      });
+
+      // 2. Subscribe to auth state changes (sign in, sign out, token renewal, session expiry)
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setIsAdminLoggedIn(true);
+          setAdminUserEmail(session.user.email || null);
+        } else {
+          setIsAdminLoggedIn(false);
+          setAdminUserEmail(null);
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    } else {
+      // When Supabase is not configured, admin is not logged in by default
+      setIsAdminLoggedIn(false);
+      setAdminUserEmail(null);
     }
   }, []);
 
-  const loginAdmin = (pass: string) => {
-    // Admin password for solution for you dashboard
-    if (pass === 'solution4u' || pass === 'admin2026' || pass === 'solution4u@bkk') {
-      setIsAdminLoggedIn(true);
-      localStorage.setItem('solution4u_admin_session', 'active');
-      return true;
+  const loginAdmin = async ({
+    email = '',
+    password,
+  }: {
+    email?: string;
+    password: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    // Admin Login strictly requires Supabase Authentication.
+    // Absolutely NO demo passwords, NO preview fallbacks, NO localStorage bypass.
+    if (!isSupabaseConfigured || !supabase) {
+      return {
+        success: false,
+        error:
+          'Supabase Authentication is not configured. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.',
+      };
     }
-    return false;
+
+    const res = await loginAdminWithSupabase(email, password);
+    if (res.success) {
+      setIsAdminLoggedIn(true);
+      setAdminUserEmail(email.trim());
+      return { success: true };
+    }
+    // Return actual Supabase error - DO NOT fall back to anything else
+    return { success: false, error: res.error || 'အီးမေးလ် သို့မဟုတ် စကားဝှက် မှားယွင်းနေပါသည်။' };
   };
 
-  const logoutAdmin = () => {
+  const logoutAdmin = async () => {
+    await logoutAdminWithSupabase();
     setIsAdminLoggedIn(false);
-    localStorage.removeItem('solution4u_admin_session');
+    setAdminUserEmail(null);
   };
 
   const savePost = async (post: Post) => {
@@ -185,6 +241,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         categories,
         settings,
         isLoading,
+        adminUserEmail,
         isAdminLoggedIn,
         loginAdmin,
         logoutAdmin,
