@@ -4,7 +4,7 @@ import { ServiceIcon } from '../components/ServiceIcon';
 import { Search, ChevronRight, MessageCircle, ShieldCheck } from 'lucide-react';
 
 export const ServicesPage: React.FC = () => {
-  const { services, categories, navigateTo, openConsultModal } = useApp();
+  const { services, categories, navigateTo, openConsultModal, staticPageContent } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -24,13 +24,13 @@ export const ServicesPage: React.FC = () => {
       <section className="bg-gradient-to-b from-sky-50/60 to-white pt-12 pb-14 border-b border-slate-200/80">
         <div className="max-w-4xl mx-auto px-4 text-center space-y-4">
           <span className="text-xs font-semibold uppercase tracking-widest text-sky-700">
-            COMPREHENSIVE SERVICES
+            {staticPageContent?.servicesHeaderKicker || "COMPREHENSIVE SERVICES"}
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-burmese leading-snug">
-            ကျွန်ုပ်တို့၏ ဝန်ဆောင်မှုများ
+            {staticPageContent?.servicesHeaderTitle || "ကျွန်ုပ်တို့၏ ဝန်ဆောင်မှုများ"}
           </h1>
           <p className="text-sm sm:text-base text-slate-600 font-burmese max-w-2xl mx-auto leading-relaxed">
-            ဘန်ကောက်မြို့တွင် မြန်မာမိတ်ဆွေများ အဆင်ပြေချောမွေ့စွာ နေထိုင်နိုင်ရန် ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်၊ အခန်းငှားရမ်းခြင်းနှင့် နေ့စဉ် လိုအပ်ချက်များကို စိတ်ချစွာ ကူညီပေးနေပါသည်။
+            {staticPageContent?.servicesHeaderSubtitle || "ဘန်ကောက်မြို့တွင် မြန်မာမိတ်ဆွေများ အဆင်ပြေချောမွေ့စွာ နေထိုင်နိုင်ရန် ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်၊ အခန်းငှားရမ်းခြင်းနှင့် နေ့စဉ် လိုအပ်ချက်များကို စိတ်ချစွာ ကူညီပေးနေပါသည်။"}
           </p>
         </div>
       </section>
@@ -83,30 +83,72 @@ export const ServicesPage: React.FC = () => {
           {filteredServices.map((svc) => (
             <div
               key={svc.id}
-              className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs hover:shadow-md hover:border-sky-300 transition-all flex flex-col justify-between"
+              className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-xs hover:shadow-md hover:border-sky-300 transition-all flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center">
+                {/* 1. Header: Icon + Title + Order Number */}
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
                     <ServiceIcon name={svc.iconName} className="w-6 h-6" />
                   </div>
-                  <span className="text-[11px] font-medium text-slate-400 font-mono">
-                    #{svc.order.toString().padStart(2, '0')}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <h3
+                        onClick={() => navigateTo('service-detail', svc.slug)}
+                        className="text-base sm:text-lg font-bold text-slate-900 hover:text-sky-700 transition-colors cursor-pointer font-burmese leading-snug line-clamp-2"
+                        title={svc.title}
+                      >
+                        {svc.title}
+                      </h3>
+                      <span className="text-[11px] font-medium text-slate-400 font-mono shrink-0">
+                        #{svc.order.toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-slate-900 font-burmese leading-snug">
-                    {svc.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-burmese">
-                    {svc.shortDescription}
-                  </p>
-                </div>
+                {/* 2. Service Image with Short Summary subtle overlay (or clean fallback if no image) */}
+                {svc.coverImage ? (
+                  <div
+                    onClick={() => navigateTo('service-detail', svc.slug)}
+                    className="w-full aspect-[16/10] rounded-xl overflow-hidden relative cursor-pointer border border-slate-200/80 bg-slate-900 shadow-2xs group/img"
+                  >
+                    <img
+                      src={svc.coverImage}
+                      alt={svc.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover object-center group-hover/img:scale-103 transition-transform duration-300"
+                      onError={(e) => {
+                        const container = e.currentTarget.parentElement;
+                        if (container) {
+                          container.style.display = 'none';
+                        }
+                      }}
+                    />
+                    {/* Subtle soft gradient base behind the floating panel */}
+                    <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/25 to-transparent pointer-events-none" />
+
+                    {/* Premium Floating Glass Summary Panel - Short Summary ONLY */}
+                    <div className="absolute inset-x-2.5 bottom-2.5 sm:inset-x-3.5 sm:bottom-3.5 p-2.5 sm:p-3 rounded-xl bg-[#0c2340]/80 backdrop-blur-md border border-white/20 shadow-md shadow-sky-950/25 pointer-events-none">
+                      <p className="text-xs sm:text-[13px] text-white/95 font-medium leading-relaxed font-burmese line-clamp-2">
+                        {svc.shortDescription}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Fallback when no image is uploaded */
+                  <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-3 shadow-2xs">
+                    <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed font-burmese line-clamp-2">
+                      {svc.shortDescription}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-6 mt-4 border-t border-slate-100 flex items-center justify-between gap-2 font-burmese">
+              {/* 3. Action Buttons below */}
+              <div className="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between gap-2 font-burmese">
                 <button
+                  type="button"
                   onClick={() => navigateTo('service-detail', svc.slug)}
                   className="inline-flex items-center gap-1 text-xs font-bold text-sky-700 hover:text-sky-800 transition-colors"
                 >
@@ -115,6 +157,7 @@ export const ServicesPage: React.FC = () => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => openConsultModal(svc.title)}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 text-slate-700 text-xs font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
                 >
@@ -147,10 +190,10 @@ export const ServicesPage: React.FC = () => {
             <ShieldCheck className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="text-sm font-bold text-slate-900">
-                တရားဝင် စည်းမျဉ်းများနှင့်အညီ သာ တာဝန်ယူ ဆောင်ရွက်ပေးပါသည်
+                {staticPageContent?.servicesTrustTitle || "တရားဝင် စည်းမျဉ်းများနှင့်အညီ သာ တာဝန်ယူ ဆောင်ရွက်ပေးပါသည်"}
               </h4>
               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                မည်သည့်ဝန်ဆောင်မှုတွင်မဆို လျှို့ဝှက်စရိတ် မရှိစေဘဲ လုပ်ငန်းစဉ်အစအဆုံးကို ကြိုတင်ရှင်းလင်းစွာ တိုင်ပင်ဆွေးနွေးပေးပါသည်။
+                {staticPageContent?.servicesTrustSubtitle || "မည်သည့်ဝန်ဆောင်မှုတွင်မဆို လျှို့ဝှက်စရိတ် မရှိစေဘဲ လုပ်ငန်းစဉ်အစအဆုံးကို ကြိုတင်ရှင်းလင်းစွာ တိုင်ပင်ဆွေးနွေးပေးပါသည်။"}
               </p>
             </div>
           </div>

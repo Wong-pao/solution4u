@@ -1,0 +1,5 @@
+# robots.txt for Solution for You - အဖြေက ဒီမှာပါ
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /#/admin

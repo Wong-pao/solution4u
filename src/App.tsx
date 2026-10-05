@@ -12,7 +12,11 @@ import { ServiceDetailPage } from './pages/ServiceDetailPage';
 import { BlogPage } from './pages/BlogPage';
 import { BlogDetailPage } from './pages/BlogDetailPage';
 import { ContactPage } from './pages/ContactPage';
-import { AdminPage } from './pages/AdminPage';
+
+// Lazy-load AdminPage so admin modules, project exporter, and editors are not loaded by public visitors
+const AdminPage = React.lazy(() =>
+  import('./pages/AdminPage').then((m) => ({ default: m.AdminPage }))
+);
 
 function AppContent() {
   const { currentRoute } = useApp();
@@ -34,7 +38,18 @@ function AppContent() {
       case 'contact':
         return <ContactPage />;
       case 'admin':
-        return <AdminPage />;
+        return (
+          <React.Suspense
+            fallback={
+              <div className="min-h-[70vh] flex flex-col items-center justify-center font-burmese space-y-3">
+                <div className="w-8 h-8 border-3 border-sky-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-slate-500">Admin Portal စနစ်ကို ဖွင့်လှစ်နေပါသည်...</p>
+              </div>
+            }
+          >
+            <AdminPage />
+          </React.Suspense>
+        );
       default:
         return <HomePage />;
     }

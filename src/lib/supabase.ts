@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { INITIAL_POSTS, INITIAL_SERVICES, INITIAL_SETTINGS, INITIAL_CATEGORIES } from '../data/initialData';
 import { Post, Service, SiteSettings, Category, ConsultationInquiry } from '../types';
+import { servicesApi, siteContentApi, inquiriesApi } from './cms';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -443,10 +444,120 @@ export async function updatePost(id: string, updates: Partial<Post>): Promise<Po
   throw new Error(`Post ${id} not found to update.`);
 }
 
+export interface DeletePostResult {
+  success: boolean;
+  postId: string;
+  databaseDeleted: boolean;
+  imageDeleted?: boolean;
+  imageWarning?: string;
+  error?: string;
+}
+
+/**
+ * Extracts the storage object path from a Supabase Storage public URL.
+ * Only returns a path if the URL actually belongs to the given bucket.
+ * e.g., https://xxx.supabase.co/storage/v1/object/public/blog-images/1727255400-abc-my-post.jpg -> 1727255400-abc-my-post.jpg
+ */
+export function extractStoragePath(url: string, bucket = 'blog-images'): string | null {
+  if (!url || typeof url !== 'string') return null;
+
+  const sanitizeExtractedPath = (raw: string): string | null => {
+    try {
+      const decoded = decodeURIComponent(raw).trim();
+      if (!decoded || decoded.includes('..') || decoded.startsWith('/') || decoded.includes('\\')) {
+        return null;
+      }
+      return decoded;
+    } catch {
+      return null;
+    }
+  };
+
+  // 1. Standard public URL: /storage/v1/object/public/{bucket}/<path>
+  const publicMarker = `/storage/v1/object/public/${bucket}/`;
+  const pIndex = url.indexOf(publicMarker);
+  if (pIndex !== -1) {
+    const raw = url.slice(pIndex + publicMarker.length).split('?')[0].split('#')[0];
+    return sanitizeExtractedPath(raw);
+  }
+
+  // 2. Signed URL: /storage/v1/object/sign/{bucket}/<path>
+  const signMarker = `/storage/v1/object/sign/${bucket}/`;
+  const sIndex = url.indexOf(signMarker);
+  if (sIndex !== -1) {
+    const raw = url.slice(sIndex + signMarker.length).split('?')[0].split('#')[0];
+    return sanitizeExtractedPath(raw);
+  }
+
+  // 3. Direct path: /storage/v1/object/{bucket}/<path>
+  const directMarker = `/storage/v1/object/${bucket}/`;
+  const dIndex = url.indexOf(directMarker);
+  if (dIndex !== -1) {
+    const raw = url.slice(dIndex + directMarker.length).split('?')[0].split('#')[0];
+    return sanitizeExtractedPath(raw);
+  }
+
+  return null;
+}
+
+/**
+ * Safely removes a file from Supabase Storage bucket 'blog-images'.
+ * Gracefully handles missing files or non-storage URLs.
+ */
+export async function deletePostImage(imageUrl: string, bucket = 'blog-images'): Promise<{
+  attempted: boolean;
+  success: boolean;
+  filePath?: string;
+  error?: string;
+}> {
+  const filePath = extractStoragePath(imageUrl, bucket);
+  if (!filePath) {
+    // Not a Supabase Storage image in this bucket (e.g. local asset or external URL)
+    return { attempted: false, success: true };
+  }
+
+  if (!supabase) {
+    return { attempted: false, success: false, filePath, error: 'Supabase is not configured' };
+  }
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return { attempted: false, success: false, filePath, error: 'Admin session required' };
+    }
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .remove([filePath]);
+
+    if (error) {
+      console.warn(`Supabase Storage remove error (${filePath}):`, error.message);
+      return { attempted: true, success: false, filePath, error: error.message };
+    }
+
+    return { attempted: true, success: true, filePath };
+  } catch (err: any) {
+    console.warn(`Supabase Storage remove exception (${filePath}):`, err);
+    return { attempted: true, success: false, filePath, error: err.message || 'Storage error' };
+  }
+}
+
 /**
  * Delete a post from Supabase public.posts and remove from local cache.
+ * Cleans up associated cover image from Supabase Storage bucket 'blog-images' if present.
  */
-export async function deletePost(id: string): Promise<void> {
+export async function deletePost(id: string): Promise<DeletePostResult> {
+  const targetId = isValidUuid(id) ? id : toValidUuid(id);
+
+  // 1. Identify cover image URL before deleting post record
+  let coverImageUrl: string | null = null;
+  const local = await getLocalPosts();
+  const localPost = local.find((p) => p.id === id || p.id === targetId);
+  if (localPost?.coverImage) {
+    coverImageUrl = localPost.coverImage;
+  }
+
+  // 2. Delete from Supabase public.posts
   if (supabase) {
     // Enforce authenticated session for Supabase deletes
     const { data: { session } } = await supabase.auth.getSession();
@@ -454,21 +565,136 @@ export async function deletePost(id: string): Promise<void> {
       throw new Error('Admin Authentication လိုအပ်ပါသည်။ စနစ်သို့ အကောင့်ပြန်ဝင်ပေးပါ။ (Supabase Session Expired)');
     }
 
-    const { error } = await supabase
+    // If cover image not found in local cache, query it from Supabase before deletion
+    if (!coverImageUrl) {
+      try {
+        const { data: row } = await supabase
+          .from('posts')
+          .select('cover_image')
+          .or(`id.eq.${targetId},id.eq.${id}`)
+          .maybeSingle();
+        if (row?.cover_image) {
+          coverImageUrl = row.cover_image;
+        }
+      } catch (err) {
+        console.warn('Could not pre-fetch cover_image before deletion:', err);
+      }
+    }
+
+    const { error: dbError } = await supabase
       .from('posts')
       .delete()
-      .eq('id', id);
+      .or(`id.eq.${targetId},id.eq.${id}`);
 
-    if (error) {
-      console.error('Supabase delete post failed:', error);
-      throw new Error(`Supabase delete failed: ${error.message}`);
+    if (dbError) {
+      console.error('Supabase delete post failed:', dbError);
+      throw new Error(`Supabase delete failed: ${dbError.message}`);
     }
   }
 
-  // Remove from LocalStorage cache
-  const local = await getLocalPosts();
-  const filtered = local.filter((p) => p.id !== id);
+  // 3. Database deletion succeeded: remove from LocalStorage cache immediately
+  const filtered = local.filter((p) => p.id !== id && p.id !== targetId);
   updateLocalCache(filtered);
+
+  // 4. Image Cleanup: Delete cover image from Supabase Storage 'blog-images' bucket
+  let imageDeleted = false;
+  let imageWarning: string | undefined = undefined;
+
+  if (coverImageUrl && supabase) {
+    const storageRes = await deletePostImage(coverImageUrl, 'blog-images');
+    if (storageRes.attempted) {
+      if (storageRes.success) {
+        imageDeleted = true;
+      } else {
+        imageWarning = `Database မှ ဆောင်းပါးကို အောင်မြင်စွာ ဖျက်ပြီးပါပြီ။ သို့သော် Storage ပုံဖျက်ရာတွင် အမှားဖြစ်ခဲ့ပါသည်: ${storageRes.error}`;
+        console.warn(imageWarning);
+      }
+    }
+  }
+
+  return {
+    success: true,
+    postId: id,
+    databaseDeleted: true,
+    imageDeleted,
+    imageWarning,
+  };
+}
+
+/**
+ * Automatically resize & compress image files using browser canvas before storage upload.
+ * Scales down oversized photos (>1600px max width/height) and compresses large JPEGs/PNGs.
+ * Completely dependency-free using standard HTML5 Canvas API.
+ */
+export async function optimizeImageBeforeUpload(
+  file: File,
+  maxWidth = 1600,
+  maxHeight = 1600,
+  quality = 0.85
+): Promise<File> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return file;
+  if (!file.type.startsWith('image/') || file.size < 150 * 1024) {
+    return file; // If already under 150KB, keep as is
+  }
+
+  return new Promise<File>((resolve) => {
+    try {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let { width, height } = img;
+
+        if (width <= maxWidth && height <= maxHeight && file.size < 500 * 1024) {
+          return resolve(file);
+        }
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        canvas.toBlob(
+          (blob) => {
+            if (!blob || blob.size >= file.size) {
+              return resolve(file);
+            }
+            const cleanName = file.name.replace(/\.[^/.]+$/, '') + (mimeType === 'image/png' ? '.png' : '.jpg');
+            const optimizedFile = new File([blob], cleanName, { type: mimeType });
+            resolve(optimizedFile);
+          },
+          mimeType,
+          quality
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+
+      img.src = objectUrl;
+    } catch {
+      resolve(file);
+    }
+  });
 }
 
 /**
@@ -476,9 +702,31 @@ export async function deletePost(id: string): Promise<void> {
  * Returns the permanent public URL to the uploaded image.
  */
 export async function uploadPostImage(file: File): Promise<string> {
+  if (!file) {
+    throw new Error('ဖိုင် ရွေးချယ်ထားခြင်း မရှိပါ');
+  }
+
+  // 1. Strict file extension AND MIME type validation (JPG, JPEG, PNG, WEBP only)
+  const rawExt = (file.name.split('.').pop() || '').toLowerCase();
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+  if (!allowedExtensions.includes(rawExt) || !allowedMimeTypes.includes(file.type)) {
+    throw new Error('JPG, PNG သို့မဟုတ် WEBP ဓာတ်ပုံဖိုင်များသာ တင်ခွင့်ပြုပါသည် (Invalid file type: allowed JPG, PNG, WEBP)');
+  }
+
+  // 2. File size validation (<= 5 MB)
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('ဓာတ်ပုံဖိုင်အရွယ်အစားသည် 5 MB ထက်မကျော်လွန်ရပါ (File size exceeds 5MB)');
+  }
+
   if (!supabase) {
     throw new Error('Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Netlify.');
   }
+
+  // Pre-upload client optimization
+  const processedFile = await optimizeImageBeforeUpload(file);
 
   // Enforce authenticated session for Supabase Storage uploads
   const { data: { session } } = await supabase.auth.getSession();
@@ -487,18 +735,19 @@ export async function uploadPostImage(file: File): Promise<string> {
   }
 
   // Collision-safe filename: blog-images/{unique-id}-{sanitized-filename}
-  const ext = file.name.split('.').pop() || 'jpg';
-  const cleanBase = file.name
+  const processedExt = (processedFile.name.split('.').pop() || '').toLowerCase();
+  const safeExt = allowedExtensions.includes(processedExt) ? processedExt : rawExt;
+  const cleanBase = processedFile.name
     .replace(/\.[^/.]+$/, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '-')
-    .slice(0, 30);
+    .slice(0, 30) || 'blog';
   const uniqueId = generateUuid().slice(0, 8);
-  const filePath = `${Date.now()}-${uniqueId}-${cleanBase}.${ext}`;
+  const filePath = `${Date.now()}-${uniqueId}-${cleanBase}.${safeExt}`;
 
   const { data, error } = await supabase.storage
     .from('blog-images')
-    .upload(filePath, file, {
+    .upload(filePath, processedFile, {
       cacheControl: '3600',
       upsert: false,
     });
@@ -513,6 +762,125 @@ export async function uploadPostImage(file: File): Promise<string> {
     .getPublicUrl(filePath);
 
   return publicUrlData.publicUrl;
+}
+
+/**
+ * Upload an image file to Supabase Storage bucket 'website-media'.
+ * - Validates file type (JPG, PNG, WEBP)
+ * - Validates file size (<= 5 MB)
+ * - Requires active authenticated Admin session
+ * - Subfolders: 'general', 'about', 'services'
+ * - Collision-safe, timestamped, sanitized filename
+ * - Returns permanent public URL
+ */
+export async function uploadWebsiteMedia(
+  file: File,
+  folder = 'general'
+): Promise<string> {
+  if (!file) {
+    throw new Error('ဖိုင် ရွေးချယ်ထားခြင်း မရှိပါ');
+  }
+
+  // 1. File type validation (JPG, PNG, WEBP) — require BOTH valid extension AND valid MIME type
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+  if (!allowedExtensions.includes(ext) || !allowedMimeTypes.includes(file.type)) {
+    throw new Error('JPG, PNG သို့မဟုတ် WEBP ဓာတ်ပုံဖိုင်များသာ တင်ခွင့်ပြုပါသည် (Invalid file type: allowed JPG, PNG, WEBP)');
+  }
+
+  // 2. File size validation (<= 5 MB)
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('ဓာတ်ပုံဖိုင်အရွယ်အစားသည် 5 MB ထက်မကျော်လွန်ရပါ (File size exceeds 5MB)');
+  }
+
+  // Pre-upload client optimization (downscale oversized photos, compress JPEGs/PNGs)
+  const processedFile = await optimizeImageBeforeUpload(file);
+
+  if (!supabase) {
+    throw new Error('Supabase ချိတ်ဆက်မှု မရှိသေးပါ။ VITE_SUPABASE_URL နှင့် VITE_SUPABASE_ANON_KEY ထည့်သွင်းပေးပါ။');
+  }
+
+  // 3. Enforce authenticated session for Supabase Storage uploads
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('Admin Authentication လိုအပ်ပါသည်။ ဓာတ်ပုံတင်ရန် အကောင့်ပြန်ဝင်ပေးပါ။ (Supabase Session Expired)');
+  }
+
+  // 4. Collision-safe filename: {folder}/{Date.now()}-{uniqueId}-{sanitized-filename}.{ext}
+  const cleanBase = processedFile.name
+    .replace(/\.[^/.]+$/, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .slice(0, 30) || 'media';
+  const uniqueId = generateUuid().slice(0, 8);
+  const cleanFolder = folder.replace(/[^a-z0-9_-]/gi, '').toLowerCase() || 'general';
+  const processedExt = (processedFile.name.split('.').pop() || '').toLowerCase();
+  const safeExt = allowedExtensions.includes(processedExt) ? processedExt : ext;
+  const filePath = `${cleanFolder}/${Date.now()}-${uniqueId}-${cleanBase}.${safeExt}`;
+
+  const { error } = await supabase.storage
+    .from('website-media')
+    .upload(filePath, processedFile, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Supabase Storage upload error (website-media):', error);
+    throw new Error(`ပုံတင်ခြင်း မအောင်မြင်ပါ ("website-media"): ${error.message}`);
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('website-media')
+    .getPublicUrl(filePath);
+
+  return publicUrlData.publicUrl;
+}
+
+/**
+ * Safely removes an image file from Supabase Storage bucket 'website-media'.
+ * - If the URL is empty or does NOT belong to 'website-media', safely returns true (no-op).
+ * - Never deletes local assets, external URLs, or blog-images files.
+ * - Requires authenticated admin session.
+ */
+export async function deleteWebsiteMedia(imageUrl: string): Promise<boolean> {
+  if (!imageUrl || typeof imageUrl !== 'string') return true;
+
+  const filePath = extractStoragePath(imageUrl, 'website-media');
+  if (!filePath) {
+    // Not a Supabase Storage file in 'website-media' (e.g. local asset or external URL)
+    return true;
+  }
+
+  if (!supabase) {
+    console.warn('Supabase is not configured, cannot delete website-media file:', filePath);
+    return false;
+  }
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('Cannot delete website-media file: Admin session expired');
+      return false;
+    }
+
+    const { error } = await supabase.storage
+      .from('website-media')
+      .remove([filePath]);
+
+    if (error) {
+      console.warn(`Supabase Storage remove error (website-media/${filePath}):`, error.message);
+      return false;
+    }
+
+    return true;
+  } catch (err: any) {
+    console.warn(`Supabase Storage remove exception (website-media/${filePath}):`, err);
+    return false;
+  }
 }
 
 /**
@@ -537,6 +905,16 @@ export async function migrateLocalPostsToSupabase(): Promise<{
   }
 
   try {
+    // Require authenticated Admin session before attempting database migration writes
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return {
+        migrated: 0,
+        total: 0,
+        message: 'Admin authentication required to migrate posts to Supabase.',
+      };
+    }
+
     // 1. Get existing posts currently in Supabase
     const { data: existingRows, error: checkError } = await supabase
       .from('posts')
@@ -668,38 +1046,20 @@ export const dataStore = {
 
   // Services
   async getServices(): Promise<Service[]> {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.SERVICES) : null;
-      return raw ? JSON.parse(raw) : INITIAL_SERVICES;
-    } catch {
-      return INITIAL_SERVICES;
-    }
+    return await servicesApi.getServices(true);
   },
 
   async updateService(updated: Service): Promise<Service> {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.SERVICES) : null;
-    const services: Service[] = raw ? JSON.parse(raw) : [...INITIAL_SERVICES];
-    const index = services.findIndex((s) => s.id === updated.id);
-    if (index >= 0) {
-      services[index] = updated;
-    }
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
-    }
-    return updated;
+    return await servicesApi.updateService(updated);
   },
 
   // Settings
   async getSettings(): Promise<SiteSettings> {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.SETTINGS) : null;
-      return raw ? JSON.parse(raw) : INITIAL_SETTINGS;
-    } catch {
-      return INITIAL_SETTINGS;
-    }
+    return await siteContentApi.getSiteContent<SiteSettings>('general_settings', INITIAL_SETTINGS);
   },
 
   async saveSettings(settings: SiteSettings): Promise<SiteSettings> {
+    await siteContentApi.upsertSiteContent('general_settings', 'general', settings);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     }
@@ -718,37 +1078,23 @@ export const dataStore = {
 
   // Inquiries
   async saveInquiry(inquiry: Omit<ConsultationInquiry, 'id' | 'createdAt' | 'status'>): Promise<ConsultationInquiry> {
-    const newInquiry: ConsultationInquiry = {
+    const res = await inquiriesApi.createInquiry(inquiry);
+    if (res.data) return res.data;
+    return {
       ...inquiry,
       id: 'inq_' + Date.now(),
       createdAt: new Date().toISOString(),
       status: 'new',
     };
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.INQUIRIES) : null;
-      const inquiries: ConsultationInquiry[] = raw ? JSON.parse(raw) : [];
-      inquiries.unshift(newInquiry);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
-      }
-    } catch (e) {
-      console.warn('Inquiry save notice:', e);
-    }
-    return newInquiry;
   },
 
   async getInquiries(): Promise<ConsultationInquiry[]> {
-    try {
-      const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.INQUIRIES) : null;
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+    return await inquiriesApi.getInquiries();
   },
 };
 
 // SQL Schema for reference in Admin portal
-export const SUPABASE_SQL_SCHEMA = `-- Solution for You - Supabase Secure Schema
+export const SUPABASE_SQL_SCHEMA = `-- Solution for You - Supabase Secure Schema & RLS Policies
 -- 1. Posts Table
 CREATE TABLE IF NOT EXISTS public.posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -760,56 +1106,68 @@ CREATE TABLE IF NOT EXISTS public.posts (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. Enable Row Level Security (RLS)
 ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
 
--- 3. SECURE RLS POLICIES FOR POSTS TABLE
--- Allow public visitors (anon + authenticated) to read posts
 CREATE POLICY "Allow public read posts"
-  ON public.posts FOR SELECT
-  USING (true);
+  ON public.posts FOR SELECT USING (true);
 
--- SECURE: Only authenticated Admin users can insert, update, or delete posts
 CREATE POLICY "Allow authenticated insert posts"
-  ON public.posts FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
+  ON public.posts FOR INSERT TO authenticated WITH CHECK (true);
 
 CREATE POLICY "Allow authenticated update posts"
-  ON public.posts FOR UPDATE
-  TO authenticated
-  USING (true);
+  ON public.posts FOR UPDATE TO authenticated USING (true);
 
 CREATE POLICY "Allow authenticated delete posts"
-  ON public.posts FOR DELETE
-  TO authenticated
-  USING (true);
+  ON public.posts FOR DELETE TO authenticated USING (true);
 
--- 4. Storage Bucket Setup (blog-images)
--- Ensure bucket exists and is marked public for read access
+-- 2. Services Table
+ALTER TABLE IF EXISTS public.services ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read services"
+  ON public.services FOR SELECT USING (true);
+
+CREATE POLICY "Allow authenticated manage services"
+  ON public.services FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 3. Site Content Table
+ALTER TABLE IF EXISTS public.site_content ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read site_content"
+  ON public.site_content FOR SELECT USING (true);
+
+CREATE POLICY "Allow authenticated manage site_content"
+  ON public.site_content FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 4. Inquiries Table (Public INSERT only; Authenticated Admin SELECT/UPDATE/DELETE)
+ALTER TABLE IF EXISTS public.inquiries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public insert inquiries"
+  ON public.inquiries FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated read inquiries"
+  ON public.inquiries FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Allow authenticated update inquiries"
+  ON public.inquiries FOR UPDATE TO authenticated USING (true);
+
+CREATE POLICY "Allow authenticated delete inquiries"
+  ON public.inquiries FOR DELETE TO authenticated USING (true);
+
+-- 5. Storage Buckets Setup ('blog-images' & 'website-media')
 INSERT INTO storage.buckets (id, name, public) 
-VALUES ('blog-images', 'blog-images', true)
+VALUES ('blog-images', 'blog-images', true), ('website-media', 'website-media', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- 5. SECURE STORAGE POLICIES FOR 'blog-images'
--- Public can view blog images
+-- 6. Storage RLS Policies ('blog-images' & 'website-media')
 CREATE POLICY "Allow public read blog-images"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'blog-images');
+  ON storage.objects FOR SELECT USING (bucket_id IN ('blog-images', 'website-media'));
 
--- SECURE: Only authenticated Admin users can upload, update, or delete images
-CREATE POLICY "Allow authenticated upload blog-images"
-  ON storage.objects FOR INSERT
-  TO authenticated
-  WITH CHECK (bucket_id = 'blog-images');
+CREATE POLICY "Allow authenticated upload storage"
+  ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('blog-images', 'website-media'));
 
-CREATE POLICY "Allow authenticated update blog-images"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (bucket_id = 'blog-images');
+CREATE POLICY "Allow authenticated update storage"
+  ON storage.objects FOR UPDATE TO authenticated USING (bucket_id IN ('blog-images', 'website-media'));
 
-CREATE POLICY "Allow authenticated delete blog-images"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'blog-images');
+CREATE POLICY "Allow authenticated delete storage"
+  ON storage.objects FOR DELETE TO authenticated USING (bucket_id IN ('blog-images', 'website-media'));
 `;

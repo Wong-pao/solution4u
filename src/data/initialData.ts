@@ -1,4 +1,4 @@
-import { Service, Category, Post, SiteSettings } from '../types';
+import { Service, Category, Post, SiteSettings, AboutPageContent, TrustPillarsContent, WorkflowStepsContent, StaticPageContent, ContactPageContent } from '../types';
 
 export const INITIAL_SETTINGS: SiteSettings = {
   agencyName: "Solution for You - အဖြေက ဒီမှာပါ",
@@ -7,22 +7,65 @@ export const INITIAL_SETTINGS: SiteSettings = {
   facebookCoverUrl: "",
   facebookProfileUrl: "",
   facebookPageUrl: "https://facebook.com/solution4u.official",
-  heroHeadline: "ဗီဇာ၊ စာရွက်စာတမ်းနဲ့ နေထိုင်ရေးကိစ္စတွေကို တစ်နေရာတည်းမှာ အလွယ်တကူ ဖြေရှင်းလိုက်ပါ။",
+  heroHeadline: "ဗီဇာ၊ စာရွက်စာတမ်းနဲ့ အထွေထွေဝန်ဆောင်မှုများကို တစ်နေရာတည်းမှာ စိတ်အေးချမ်းစွာ ဖြေရှင်းလိုက်ပါ",
   heroSupportingText: "ဘန်ကောက်မှာ နေထိုင်အလုပ်လုပ်ကိုင်နေကြတဲ့ မြန်မာမိတ်ဆွေများအတွက် လွယ်ကူ၊ မြန်ဆန်၊ စိတ်ချရသော ဝန်ဆောင်မှုများကို အစအဆုံး တာဝန်ယူ ကူညီပေးနေပါတယ်။",
   heroTrustStatement: "Bangkok မှာ အားကိုးစွာ တိုင်ပင်နိုင်တဲ့ မိတ်ဆွေတစ်ယောက်",
   emotionalQuote: "ဘန်ကောက်မှာ ကိုယ့်ဘက်ကနေ ကူညီပေးမယ့် မိတ်ဆွေတစ်ယောက်ရှိနေတယ်",
+  heroImageUrl: "/src/assets/images/hero_bangkok_community_1790239728277.jpg",
+  heroBadgeTitle: "Solution for You",
+  heroBadgeSubtitle: "မြန်မာမိတ်ဆွေများ အားကိုးစွာ တိုင်ပင်နိုင်သော အကူအညီပေးရေး ဝန်ဆောင်မှု",
+  servicesHeadline: "ဘာကိစ္စအတွက် ကူညီပေးရမလဲ?",
+  servicesSubtext: "ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်အကောင့်နှင့် နေထိုင်ရေးဆိုင်ရာ အဓိက ဝန်ဆောင်မှု (၁၂) မျိုး",
   address: "Soi Lat Phrao 107, Khlong Chan, Bang Kapi, Bangkok 10240, Thailand.",
   phone: "0693078123",
   lineId: "@Sm!t8",
   lineUrl: "https://line.me/R/ti/p/@Sm!t8",
   email: "solutionforyou.contact@gmail.com",
+  telegramUsername: "@solution4u",
+  telegramUrl: "https://t.me/solution4u",
   whatsappUrl: "https://wa.me/66989641139",
   whatsappNumber: "+66 98 964 1139",
   messengerUrl: "https://m.me/solution4u.official",
   businessHoursWeekday: "တနင်္လာ – သောကြာ: နံနက် ၉:၀၀ မှ ညနေ ၅:၀၀ ထိ",
-  businessHoursWeekend: "စနေ နှင့် တနင်္ဂနွေ: ရုံးပိတ်ပါသည်။ (Messenger / LINE တွင် မက်ဆေ့ခ်ျ ချန်ထားနိုင်ပါသည်)",
+  businessHoursWeekend: "စနေ နှင့် တနင်္ဂနွေ: ရုံးပိတ်ပါသည်။ (Messenger / LINE / Telegram တွင် မက်ဆေ့ခ်ျ ချန်ထားနိုင်ပါသည်)",
   disclaimer: "Solution for You သည် ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများအား နေထိုင်ရေးနှင့် စာရွက်စာတမ်းကိစ္စများ လွယ်ကူစေရန် အကူအညီပေးသော ပုဂ္ဂလိက ဝန်ဆောင်မှုလုပ်ငန်းဖြစ်ပါသည်။ ထိုင်းအစိုးရ သို့မဟုတ် သံရုံးဆိုင်ရာ ရုံးဌာနတစ်ခု မဟုတ်ပါ။ ဥပဒေမဲ့ ကတိကဝတ်များ မပေးဘဲ တရားဝင် စည်းမျဉ်းစည်းကမ်းများနှင့်အညီ အကောင်းဆုံး ကူညီဆောင်ရွက်ပေးပါသည်။"
 };
+
+export function getTelegramUrl(settings?: Partial<SiteSettings> | null): string {
+  const rawUrl = settings?.telegramUrl?.trim();
+  if (rawUrl) {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    return `https://t.me/${rawUrl.replace(/^@/, '')}`;
+  }
+  const rawUser = settings?.telegramUsername?.trim();
+  if (rawUser) {
+    if (rawUser.startsWith('http://') || rawUser.startsWith('https://')) {
+      return rawUser;
+    }
+    return `https://t.me/${rawUser.replace(/^@/, '')}`;
+  }
+  return 'https://t.me/solution4u';
+}
+
+export function getLineUrl(settings?: Partial<SiteSettings> | null): string {
+  const rawUrl = settings?.lineUrl?.trim();
+  if (rawUrl) {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    return `https://line.me/R/ti/p/${rawUrl.startsWith('@') ? rawUrl : '@' + rawUrl}`;
+  }
+  const rawId = settings?.lineId?.trim();
+  if (rawId) {
+    if (rawId.startsWith('http://') || rawId.startsWith('https://')) {
+      return rawId;
+    }
+    return `https://line.me/R/ti/p/${rawId.startsWith('@') ? rawId : '@' + rawId}`;
+  }
+  return 'https://line.me/R/ti/p/@Sm!t8';
+}
 
 export const INITIAL_CATEGORIES: Category[] = [
   { id: 'visa-immigration', slug: 'visa-immigration', name: 'ဗီဇာနှင့် လဝက', nameEn: 'Visa & Immigration' },
@@ -335,3 +378,180 @@ export const INITIAL_POSTS: Post[] = [
 Solution for You အနေဖြင့် လူကိုယ်တိုင် လဝကရုံးသို့ သွားရောက်ရန် အချိန်မရှိသော မိတ်ဆွေများအတွက် စနစ်တကျ အချိန်မီ အစားထိုး တိုင်ကြားပေးလျက်ရှိပါသည်။`
   }
 ];
+
+export const INITIAL_ABOUT_CONTENT: AboutPageContent = {
+  headerKicker: "WE ARE A TRUSTED AGENT",
+  headerTitle: "ကျွန်ုပ်တို့အကြောင်း",
+  headerSubtitle: "ဘန်ကောက်မှာ ကိုယ့်ဘက်ကနေ ကူညီပေးမယ့် မိတ်ဆွေတစ်ယောက်လို အမြဲရှိနေပေးမည့် Solution for You",
+  storyBadge: "စိတ်ချယုံကြည်ရသော ဝန်ဆောင်မှု",
+  storyTitle: "WE ARE A TRUSTED AGENT",
+  storyParagraph1: "ဘန်ကောက်မြို့တွင် နေထိုင်အလုပ်လုပ်ကိုင်နေကြသည့် အကိုအမတို့ နေထိုင်စဉ် ကြုံတွေ့ရလေ့ရှိသော ဗီဇာ၊ စာရွက်စာတမ်းနှင့် နေထိုင်ရေးဆိုင်ရာ အခက်အခဲမှန်သမျှ ကြုံတွေ့လာပါက \"Solution for You\" ကို အပြည့်အဝ ယုံကြည်စိတ်ချစွာ သတိရလိုက်ပါ။",
+  storyParagraph2: "အကိုအမတို့၏ ခေါင်းခဲစရာ ကိစ္စများကို စေတနာအပြည့်ဖြင့် အမှန်ကန်ဆုံးနှင့် အမြန်ဆန်ဆုံး ကူညီဖြေရှင်းပေးမည်ဖြစ်ပြီး၊ လူကြီးမင်းတို့၏ စိတ်ကျေနပ်မှုနှင့် စိတ်အေးချမ်းမှုသည် ကျွန်ုပ်တို့၏ အဓိက ပန်းတိုင်ဖြစ်ပါသည်။",
+  teamImageUrl: "/src/assets/images/about_team_assistance_1790239768198.jpg",
+  value1: "လွယ်ကူ မြန်ဆန် စိတ်ချရမှု",
+  value2: "မိတ်ဆွေလို ဖော်ရွေနွေးထွေးမှု",
+  visionTitle: "OUR VISION",
+  visionText: "ကျွန်ုပ်တို့၏ ကျေးဇူးရှင် မိတ်ဆွေများ၏ အချိန်နဲ့ ငွေကြေး ကုန်ကျစရိတ်ကို အထိရောက်ဆုံး သက်သာစေပြီး လွယ်ကူ၊ လျှင်မြန်၊ စိတ်ချရဆုံးသော ဗီဇာ၊ စာရွက်စာတမ်းနှင့် အထွေထွေ ဝန်ဆောင်မှုများကို တာဝန်ယူမှုအပြည့်ဖြင့် ဆောင်ရွက်ပေးမည့် အားအကိုးရဆုံး ကိုယ်စားလှယ် ဖြစ်လာစေရန် ဖြစ်ပါသည်။",
+  missionTitle: "OUR MISSION",
+  missionText: "ဗီဇာ၊ စာရွက်စာတမ်းနဲ့ အထွေထွေဝန်ဆောင်မှုများကို လွယ်ကူရှင်းလင်းစေရန်၊ အချိန်နှင့် ကုန်ကျစရိတ်ကို အထူးသက်သာစေရန် နှင့် စိတ်အေးချမ်းစွာ ဝန်ဆောင်မှု အပြည့်အဝ ရရှိစေရန် စေတနာအပြည့်ဖြင့် လုပ်ငန်းစဉ် ပြီးဆုံးသည်အထိ တာဝန်ယူ ကူညီပေးရန် ဖြစ်ပါသည်။",
+  ctaTitle: "ဘန်ကောက်ရောက် မြန်မာမိတ်ဆွေများအတွက် အစဉ်အမြဲ အသင့်ရှိနေပါသည်",
+  ctaSubtitle: "မည်သည့်အခက်အခဲမျိုးမဆို ကြိုတင်တိုင်ပင်ဆွေးနွေးနိုင်ပါသည်။ အားမနာဘဲ ဆက်သွယ်လိုက်ပါ။"
+};
+
+export const INITIAL_TRUST_PILLARS: TrustPillarsContent = {
+  sectionKicker: "OUR PROMISE",
+  sectionTitle: "Solution for You ကို ဘာကြောင့် ရွေးချယ်ကြတာလဲ?",
+  sectionSubtitle: "ခေါင်းခဲစရာ ကိစ္စများကို စေတနာအပြည့်ဖြင့် အမှန်ကန်ဆုံးနှင့် အမြန်ဆန်ဆုံး ကူညီဖြေရှင်းပေးပါသည်",
+  pillars: [
+    {
+      num: '01',
+      title: 'အစအဆုံး တာဝန်ယူပေးခြင်း',
+      desc: 'စတင်တိုင်ပင်ချိန်မှ လုပ်ငန်းစဉ်အောင်မြင်စွာ ပြီးဆုံးသည်အထိ အဆင့်တိုင်းတွင် အစအဆုံး တာဝန်ယူ ကူညီပေးပါသည်။',
+    },
+    {
+      num: '02',
+      title: 'ရှင်းလင်းသော အကြံဉာဏ်များ',
+      desc: 'ရှုပ်ထွေးသော စည်းကမ်းသတ်မှတ်ချက်များကို မြန်မာလို ရိုးရှင်းစွာ ရှင်းပြပြီး လိုအပ်သည့်စာရွက်စာတမ်းကိုသာ တိကျစွာ လမ်းညွှန်ပေးပါသည်။',
+    },
+    {
+      num: '03',
+      title: 'လွယ်ကူရှင်းလင်းသော လုပ်ငန်းစဉ်',
+      desc: 'မလိုအပ်ဘဲ အချိန်ကြန့်ကြာခြင်း မရှိစေရန် စနစ်တကျ အဆင့်ဆင့် ပြင်ဆင်ပြီး အဆင်ပြေဆုံး နည်းလမ်းဖြင့် ဆောင်ရွက်ပေးပါသည်။',
+    },
+    {
+      num: '04',
+      title: 'မြန်ဆန်ထိရောက်သော ဝန်ဆောင်မှု',
+      desc: 'ရက်ကျော်ဒဏ်ကြေးနှင့် စာရွက်စာတမ်း အခက်အခဲ မဖြစ်ပေါ်စေရန် အချိန်နှင့်တပြေးညီ အမြန်ဆုံး ဆောင်ရွက်ပေးပါသည်။',
+    },
+    {
+      num: '05',
+      title: 'မိတ်ဆွေတစ်ယောက်လို ဖော်ရွှေနွေးထွေးမှု',
+      desc: 'စိမ်းကားသော ကုမ္ပဏီတစ်ခုလို မဟုတ်ဘဲ မိသားစုဝင် မိတ်ဆွေတစ်ယောက်လို ရင်းနှီးနွေးထွေးစွာ အနီးကပ် ရှိနေပေးပါသည်။',
+    },
+  ]
+};
+
+export const INITIAL_WORKFLOW_STEPS: WorkflowStepsContent = {
+  sectionKicker: "SIMPLE WORKFLOW",
+  sectionTitle: "လုပ်ငန်းစဉ် ၅ ဆင့်",
+  sectionSubtitle: "ရှုပ်ထွေးမှုမရှိဘဲ ရိုးရှင်းလွယ်ကူစွာဖြင့် သင်လိုအပ်သော ဝန်ဆောင်မှုကို ရယူလိုက်ပါ",
+  steps: [
+    { num: '01', title: 'ဆက်သွယ်ပါ', desc: 'Messenger၊ ဖုန်း၊ LINE သို့မဟုတ် Telegram မှတစ်ဆင့် ဆက်သွယ်ပါ။' },
+    { num: '02', title: 'မိမိလိုအပ်ချက်ကို ပြောပြပါ', desc: 'ဗီဇာ၊ ဘဏ်၊ နေထိုင်ရေး စသည့် ကြုံတွေ့နေရသော အခက်အခဲကို ပြောပြပါ။' },
+    { num: '03', title: 'လိုအပ်သော အချက်အလက်များကို စစ်ဆေးပေးမည်', desc: 'ကိုင်ဆောင်ထားသော စာရွက်စာတမ်းများ၏ သက်တမ်းနှင့် လိုအပ်ချက်များကို အခမဲ့ စစ်ဆေးပေးပါမည်။' },
+    { num: '04', title: 'လုပ်ငန်းစဉ်ကို စတင်ဆောင်ရွက်မည်', desc: 'ရှင်းလင်းသော အစီအစဉ်အတိုင်း တိကျမြန်ဆန်စွာ ဆောင်ရွက်ပေးပါမည်။' },
+    { num: '05', title: 'ပြီးဆုံးသည်အထိ ကူညီပေးမည်', desc: 'လူကြီးမင်းတို့ စိတ်အေးချမ်းသာစွာ အောင်မြင်ပြီးမြောက်သည်အထိ တာဝန်ယူပေးပါမည်။' },
+  ]
+};
+
+export const INITIAL_STATIC_PAGE_CONTENT: StaticPageContent = {
+  // A. Home Page - Knowledge Center
+  homeKnowledgeKicker: "KNOWLEDGE CENTER",
+  homeKnowledgeTitle: "အသုံးဝင်တဲ့ အချက်အလက်များ",
+  homeKnowledgeSubtitle: "ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများအတွက် လက်တွေ့အသုံးဝင်မယ့် သတင်းအချက်အလက်များ",
+
+  // B. Home Page - Facebook Page Official Update
+  homeFacebookTitle: "နေ့စဉ် အချိန်နှင့်တပြေးညီ သတင်းများနှင့် အချက်အလက်များ",
+  homeFacebookSubtitle: "ထိုင်းနိုင်ငံ လဝက သတင်းများ၊ ဗီဇာနှင့် Work Permit အပြောင်းအလဲများ၊ ဘဏ်နှင့် နေထိုင်ရေးဆိုင်ရာ အရေးကြီး အသိပေးချက်များကို ကျွန်ုပ်တို့၏ Official Facebook Page တွင် အပတ်စဉ် ပုံမှန် ၄-၅ ပုဒ် တင်ဆက်ပေးနေပါသည်။",
+
+  // C. Home Page - Brand Profile Area
+  brandProfileName: "Solution for You - အဖြေက ဒီမှာပါ",
+  brandProfileSubtitle: "Bangkok Myanmar Service Agency",
+  brandProfileSupportingText: "မိတ်ဆွေများအတွက် စိတ်ချရသော အကူအညီ",
+  brandProfileMessengerHours: "Facebook & Messenger တွင် ၂၄ နာရီ မက်ဆေ့ခ်ျ ပို့ထားနိုင်ပါသည်",
+
+  // D. Home Page - Emotional CTA Section
+  homeCtaTitle: "အခက်အခဲရှိနေပါသလား?",
+  homeCtaSubtitle: "မိမိကိုယ်တိုင် ရှုပ်ထွေးစွာ ဖြေရှင်းနေစရာမလိုပါဘူး။ လိုအပ်တာကို ပြောပြပါ။ Solution for You က အကောင်းဆုံးဖြေရှင်းနိုင်မယ့် လမ်းကြောင်းကို အတူရှာပေးပါမယ်။",
+
+  // E. Footer Description
+  footerDescription: "ဗီဇာ၊ စာရွက်စာတမ်းနှင့် နေထိုင်ရေးဆိုင်ရာ ဝန်ဆောင်မှုများကို တစ်နေရာတည်းမှာ အလွယ်တကူ ရယူနိုင်ရန် ကူညီပေးနေပါတယ်။ ဘန်ကောက်မှာ ကိုယ့်ဘက်ကနေ ကူညီပေးမယ့် မိတ်ဆွေတစ်ယောက်လို အမြဲရှိနေပါမယ်။",
+
+  // 3. Service Detail Page - Standard Support Section
+  serviceDetailSupportHeading: "ကျွန်ုပ်တို့ အစအဆုံး ကူညီပေးမည့် အချက်များ",
+  serviceDetailSupportBullet1: "လိုအပ်သော စာရွက်စာတမ်းများ ကြိုတင်စစ်ဆေးပေးခြင်း",
+  serviceDetailSupportBullet2: "ဘာသာစကားနှင့် ဆက်သွယ်ရေး အခက်အခဲမရှိအောင် ကူညီခြင်း",
+  serviceDetailSupportBullet3: "ရက်ချိန်းနှင့် တရားဝင် လုပ်ထုံးလုပ်နည်းများ စီစဉ်ပေးခြင်း",
+  serviceDetailSupportBullet4: "လုပ်ငန်းစဉ် အောင်မြင်သည်အထိ အနီးကပ် တွဲခေါ်ဆောင်ရွက်ပေးခြင်း",
+  serviceDetailNoticeDisclaimer: "သတိပြုရန် - Solution for You သည် ပုဂ္ဂလိက ဝန်ဆောင်မှု အကူအညီပေးရေး လုပ်ငန်းဖြစ်ပြီး အစိုးရရုံးဌာန မဟုတ်ပါ။ ဥပဒေမဲ့ ကတိကဝတ်များ မပေးဘဲ တည်ဆဲစည်းမျဉ်းများနှင့်အညီ အမှန်ကန်ဆုံး ကူညီပေးခြင်း ဖြစ်ပါသည်။",
+  serviceDetailPrimaryBtn: "Messenger ဖြင့် ချက်ချင်းမေးမည်",
+  serviceDetailSecondaryBtn: "ဖုန်းတိုက်ရိုက်ခေါ်ဆိုရန်",
+  serviceDetailTertiaryBtn: "အခမဲ့ တိုင်ပင်လွှာ ပို့ရန်",
+
+  // 4. Services Page - Main Introduction & Trust
+  servicesHeaderKicker: "COMPREHENSIVE SERVICES",
+  servicesHeaderTitle: "ကျွန်ုပ်တို့၏ ဝန်ဆောင်မှုများ",
+  servicesHeaderSubtitle: "ဘန်ကောက်မြို့တွင် မြန်မာမိတ်ဆွေများ အဆင်ပြေချောမွေ့စွာ နေထိုင်နိုင်ရန် ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်၊ အခန်းငှားရမ်းခြင်းနှင့် နေ့စဉ် လိုအပ်ချက်များကို စိတ်ချစွာ ကူညီပေးနေပါသည်။",
+  servicesTrustTitle: "တရားဝင် စည်းမျဉ်းများနှင့်အညီ သာ တာဝန်ယူ ဆောင်ရွက်ပေးပါသည်",
+  servicesTrustSubtitle: "မည်သည့်ဝန်ဆောင်မှုတွင်မဆို လျှို့ဝှက်စရိတ် မရှိစေဘဲ လုပ်ငန်းစဉ်အစအဆုံးကို ကြိုတင်ရှင်းလင်းစွာ တိုင်ပင်ဆွေးနွေးပေးပါသည်။",
+
+  // 5. Content / Knowledge Center Page (BlogPage)
+  blogPageKicker: "KNOWLEDGE CENTER",
+  blogPageTitle: "သုတစုံလင် ဗဟုသုတစင်တာ",
+  blogPageSubtitle: "ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများ နေ့စဉ်သိရှိထားသင့်သည့် ဗီဇာ၊ Work Permit၊ စာရွက်စာတမ်းနှင့် လဝက ဆိုင်ရာ လက်တွေ့အသုံးဝင် အချက်အလက်များ",
+
+  // 6. Article / Content Detail Page - Bottom CTA (BlogDetailPage)
+  articleCtaBadge: "Solution for You အကူအညီ",
+  articleCtaTitle: "ဤကိစ္စရပ်နှင့် ပတ်သက်ပြီး စာရွက်စာတမ်း အခက်အခဲ ရှိနေပါသလား?",
+  articleCtaSubtitle: "မိတ်ဆွေ၏ နိုင်ငံကူးလက်မှတ် သို့မဟုတ် စာရွက်စာတမ်းကို ဓာတ်ပုံရိုက်ပို့ပြီး Solution for You ထံ အခမဲ့ စစ်ဆေးတိုင်ပင်နိုင်ပါသည်။",
+  articleCtaHeading: "ဤကိစ္စရပ်နှင့် ပတ်သက်ပြီး စာရွက်စာတမ်း အခက်အခဲ ရှိနေပါသလား?",
+  articleCtaDescription: "မိတ်ဆွေ၏ နိုင်ငံကူးလက်မှတ် သို့မဟုတ် စာရွက်စာတမ်းကို ဓာတ်ပုံရိုက်ပို့ပြီး Solution for You ထံ အခမဲ့ စစ်ဆေးတိုင်ပင်နိုင်ပါသည်။",
+  articleCtaPrimaryBtn: "အခမဲ့ တိုင်ပင်ဆွေးနွေးရန်",
+  articleCtaSecondaryBtn: "Messenger ဖြင့် ဆက်သွယ်ရန်",
+};
+
+export const INITIAL_CONTACT_CONTENT: ContactPageContent = {
+  // 1. Contact Page Header
+  headerBadge: "ဘန်ကောက်ရှိ မိတ်ဆွေတစ်ယောက်",
+  headerTitle: "လူကြီးမင်းတို့၏ စိတ်ကျေနပ်မှုနှင့် စိတ်အေးချမ်းမှုသည် ကျွန်ုပ်တို့၏ အဓိက ပန်းတိုင်ဖြစ်ပါသည်။",
+  headerSubtitle: "ဘန်ကောက်တွင် နေထိုင်အလုပ်လုပ်ကိုင်နေကြတဲ့ အကို၊အမတို့၏ ဗီဇာ၊ စာရွက်စာတမ်းနှင့် နေထိုင်ရေးဆိုင်ရာ ကိစ္စရပ်များအတွက် 'Solution for You' ထံ စိတ်အေးချမ်းစွာ တိုင်ပင်ဆွေးနွေးနိုင်ပါတယ်။",
+
+  // 2. Quick Contact Channel Cards (Priority: Messenger -> Phone -> LINE -> Telegram -> Email)
+  messengerButtonTitle: "Messenger",
+  messengerButtonSubtext: "Facebook Chat",
+  phoneButtonTitle: "Call Now",
+  lineButtonTitle: "LINE ID",
+  telegramButtonTitle: "Telegram",
+  telegramButtonSubtext: "တိုက်ရိုက် စာပို့ရန်",
+  whatsappButtonTitle: "Telegram",
+  whatsappButtonSubtext: "တိုက်ရိုက် စာပို့ရန်",
+  emailButtonTitle: "Email",
+  emailButtonSubtext: "အီးမေးလ် ပို့ရန်",
+
+  // 3. Contact Information & Business Hours
+  infoSectionTitle: "ရုံးတည်နေရာနှင့် ဆက်သွယ်ရန်",
+  addressLabel: "Office Address",
+  addressText: "Soi Lat Phrao 107, Khlong Chan, Bang Kapi, Bangkok 10240, Thailand.",
+  phoneLabel: "Phone Number",
+  emailLabel: "Email Address",
+  hoursHeading: "ရုံးဖွင့်ချိန် (Business Hours)",
+  hoursWeekday: "Monday – Friday: 9:00 AM – 5:00 PM",
+  hoursWeekendClosed: "Saturday & Sunday: Office closed.",
+  hoursWeekendNote: "သို့သော် မိတ်ဆွေများအနေဖြင့် Messenger၊ LINE သို့မဟုတ် Telegram တွင် မက်ဆေ့ခ်ျ ချန်ထားခဲ့နိုင်ပါသည်။",
+  locationGuideHeading: "Bangkok လမ်းညွှန်ချက် -",
+  locationGuideText: "Lat Phrao 107 အနီးဝန်းကျင်တွင် တည်ရှိပြီး၊ လူကိုယ်တိုင် လာရောက်လိုပါက အဆင်ပြေစေရန် Messenger၊ ဖုန်း၊ LINE သို့မဟုတ် Telegram ဖြင့် ကြိုတင်ရက်ချိန်း ရယူပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။",
+
+  // 4. Contact Form Labels & Placeholders
+  formHeading: "မေးမြန်းလိုသည်များကို ပေးပို့ထားရန်",
+  formDescription: "ကျွန်ုပ်တို့အဖွဲ့သားများမှ ရွေးချယ်ထားသော ချန်နယ်သို့ အမြန်ဆုံး အခမဲ့ ပြန်လည်ဆက်သွယ်ပေးပါမည်",
+  fullNameLabel: "အမည် သို့မဟုတ် ခေါ်ဆိုရမည့်အမည်",
+  fullNamePlaceholder: "ဥပမာ - မောင်မောင်",
+  formPhoneLabel: "ဖုန်းနံပါတ်",
+  formPhonePlaceholder: "08x-xxx-xxxx",
+  serviceTypeLabel: "ဝန်ဆောင်မှု ရွေးချယ်ရန်",
+  serviceOtherOptionLabel: "အခြား အထွေထွေ အကူအညီ",
+  contactChannelLabel: "ပြန်လည်ဆက်သွယ်စေလိုသည့် လမ်းကြောင်း",
+  channelPhoneLabel: "ဖုန်းခေါ်ဆိုရန်",
+  messageLabel: "သိရှိလိုသည့် အကြောင်းအရာ အကျဉ်းချုပ်",
+  messagePlaceholder: "ဥပမာ - ဘဏ်အကောင့်ဖွင့်ရန် စာရွက်စာတမ်း အဆင်မပြေဖြစ်နေလို့ ကူညီပေးနိုင်မလား သိချင်ပါတယ်",
+  submitButtonText: "မက်ဆေ့ခ်ျ ပေးပို့မည် (အခမဲ့ တိုင်ပင်ရန်)",
+  submittingButtonText: "ပေးပို့နေပါသည်...",
+
+  // 5. Feedback & Validation Messages
+  successHeading: "ကျေးဇူးတင်ပါသည်၊ အချက်အလက်များ လက်ခံရရှိပါပြီ။",
+  successDescription: "Solution for You အဖွဲ့သားများမှ မိတ်ဆွေ၏ ဖုန်း/အကောင့်ထံသို့ အမြန်ဆုံး ဆက်သွယ်ပေးပါမည်။",
+  sendAnotherButtonText: "နောက်ထပ် မက်ဆေ့ခ်ျ ပေးပို့ရန်",
+  rateLimitMessage: "မကြာသေးမီက စာပို့ထားပြီးဖြစ်ပါသည်။ ခေတ္တစောင့်ဆိုင်းပြီးမှ ထပ်မံပေးပို့ပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။",
+  invalidPhoneMessage: "ကျေးဇူးပြု၍ မှန်ကန်သော ဖုန်းနံပါတ် ရိုက်ထည့်ပေးပါ",
+  errorMessage: "မက်ဆေ့ခ်ျ ပေးပို့ရာတွင် အဆင်မပြေဖြစ်သွားပါသည်- ကျေးဇူးပြု၍ အထက်ပါ Messenger၊ ဖုန်း၊ LINE သို့မဟုတ် Telegram ဖြင့် တိုက်ရိုက်ဆက်သွယ်ပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။",
+};

@@ -9,6 +9,13 @@ import {
   generateUuid
 } from '../lib/supabase';
 import { generateClientSideSourceZip } from '../lib/projectExporter';
+import { GlobalSettingsEditor } from '../components/admin/GlobalSettingsEditor';
+import { HomePageEditor } from '../components/admin/HomePageEditor';
+import { AboutPageEditor } from '../components/admin/AboutPageEditor';
+import { ServicesEditor } from '../components/admin/ServicesEditor';
+import { InquiriesInbox } from '../components/admin/InquiriesInbox';
+import { StaticContentEditor } from '../components/admin/StaticContentEditor';
+import { ContactPageEditor } from '../components/admin/ContactPageEditor';
 import {
   ShieldCheck,
   Lock,
@@ -33,7 +40,13 @@ import {
   KeyRound,
   Download,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  X,
+  Building2,
+  Phone,
+  Info,
+  Home,
+  Inbox
 } from 'lucide-react';
 
 export const AdminPage: React.FC = () => {
@@ -58,7 +71,9 @@ export const AdminPage: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'posts' | 'new-post' | 'copy-editor' | 'branding' | 'services' | 'settings' | 'database'>('posts');
+  const [activeTab, setActiveTab] = useState<
+    'home-page' | 'about-us' | 'our-services' | 'posts' | 'new-post' | 'contact-us' | 'global-settings' | 'static-content' | 'inquiries' | 'database'
+  >('home-page');
 
   // Editing state for posts
   const [editingPost, setEditingPost] = useState<Post | null>(null);
@@ -79,10 +94,6 @@ export const AdminPage: React.FC = () => {
   const [fbImportText, setFbImportText] = useState('');
   const [showFbImport, setShowFbImport] = useState(false);
 
-  // Site Settings & Copy Editor form state
-  const [settingsForm, setSettingsForm] = useState<SiteSettings>({ ...settings });
-  const [settingsSaved, setSettingsSaved] = useState(false);
-
   // Schema copy status
   const [copiedSchema, setCopiedSchema] = useState(false);
 
@@ -100,6 +111,35 @@ export const AdminPage: React.FC = () => {
   const [isSavingPost, setIsSavingPost] = useState(false);
   const [postSaveSuccess, setPostSaveSuccess] = useState<string | null>(null);
   const [postSaveError, setPostSaveError] = useState<string | null>(null);
+
+  // Delete Confirmation & Execution states
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState<string | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!postToDelete) return;
+    setIsDeletingPost(true);
+    setDeleteErrorMsg(null);
+    setDeleteSuccessMsg(null);
+
+    try {
+      const result = await deletePost(postToDelete.id);
+      if (result.imageWarning) {
+        setDeleteSuccessMsg(`ဆောင်းပါးကို အောင်မြင်စွာ ဖျက်ပြီးပါပြီ (သတိပေးချက်: ${result.imageWarning})`);
+      } else {
+        setDeleteSuccessMsg(`"${postToDelete.title}" ဆောင်းပါးနှင့် သက်ဆိုင်ရာ Storage ပုံကို အောင်မြင်စွာ ဖျက်ပြီးပါပြီ`);
+      }
+      setTimeout(() => setDeleteSuccessMsg(null), 5000);
+      setPostToDelete(null);
+    } catch (err: any) {
+      console.error('Delete post failed:', err);
+      setDeleteErrorMsg(err.message || 'ဆောင်းပါး ဖျက်ရာတွင် အမှားဖြစ်ပွားခဲ့ပါသည်။');
+    } finally {
+      setIsDeletingPost(false);
+    }
+  };
 
   // Supabase Migration states
   const [isMigrating, setIsMigrating] = useState(false);
@@ -204,16 +244,35 @@ export const AdminPage: React.FC = () => {
     setFormTags('ဗီဇာ, စာရွက်စာတမ်း');
   };
 
-  // Helper for image upload -> Supabase Storage (blog-images) or local preview fallback
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetField: 'postCover' | 'logo' | 'fbCover' | 'fbProfile') => {
+  // Helper for blog post cover upload -> Supabase Storage (blog-images) or local preview fallback
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetField: 'postCover' = 'postCover') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (targetField === 'postCover') {
+      setCoverUploadError(null);
+      setCoverUploadSuccess(null);
+
+      // 1. Validate allowed file extension and MIME type (JPG, JPEG, PNG, WEBP only; block SVG/HTML/executable files)
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedExtensions.includes(ext) || !allowedMimeTypes.includes(file.type)) {
+        setCoverUploadError('JPG, PNG သို့မဟုတ် WEBP ဓာတ်ပုံဖိုင်များသာ တင်ခွင့်ပြုပါသည် (Allowed: JPG, PNG, WEBP)');
+        e.target.value = '';
+        return;
+      }
+
+      // 2. Validate file size (<= 5 MB)
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        setCoverUploadError('ဓာတ်ပုံဖိုင်အရွယ်အစားသည် 5 MB ထက်မကျော်လွန်ရပါ (Max size: 5MB)');
+        e.target.value = '';
+        return;
+      }
+
       if (isSupabaseConfigured) {
         setIsUploadingCover(true);
-        setCoverUploadError(null);
-        setCoverUploadSuccess(null);
         try {
           const publicUrl = await uploadPostImage(file);
           setFormCoverImage(publicUrl);
@@ -221,41 +280,22 @@ export const AdminPage: React.FC = () => {
           setTimeout(() => setCoverUploadSuccess(null), 4000);
         } catch (err: any) {
           console.error('Supabase Storage upload notice:', err);
-          setCoverUploadError(`Supabase Storage သို့ ပုံတင်မရပါ (${err.message || 'Error'}) - Local preview ပြသထားပါသည်`);
-          // Fallback to local Data URL so user is never blocked
-          const reader = new FileReader();
-          reader.onload = () => {
-            setFormCoverImage(reader.result as string);
-          };
-          reader.readAsDataURL(file);
+          setCoverUploadError(`Supabase Storage သို့ ပုံတင်မရပါ (${err.message || 'Error'})`);
         } finally {
           setIsUploadingCover(false);
+          e.target.value = '';
         }
         return;
       }
 
-      // If Supabase not yet configured, local preview
+      // If Supabase not yet configured, local preview for validated image
       const reader = new FileReader();
       reader.onload = () => {
         setFormCoverImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      return;
+      e.target.value = '';
     }
-
-    // Logo & branding
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      if (targetField === 'logo') {
-        setSettingsForm((prev) => ({ ...prev, logoUrl: dataUrl }));
-      } else if (targetField === 'fbCover') {
-        setSettingsForm((prev) => ({ ...prev, facebookCoverUrl: dataUrl }));
-      } else if (targetField === 'fbProfile') {
-        setSettingsForm((prev) => ({ ...prev, facebookProfileUrl: dataUrl }));
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   // Facebook post quick-import parser
@@ -324,13 +364,6 @@ export const AdminPage: React.FC = () => {
     } finally {
       setIsSavingPost(false);
     }
-  };
-
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await updateSettings(settingsForm);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2500);
   };
 
   const handleCopySchema = () => {
@@ -476,80 +509,148 @@ export const AdminPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 pb-2 text-xs font-semibold text-slate-600 scrollbar-none font-burmese">
-        <button
-          onClick={() => setActiveTab('posts')}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'posts' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Contents စာရင်း ({posts.length})</span>
-        </button>
+      {/* Reorganized Admin Navigation (Grouped by Website Content, Website Settings, Management, Advanced/Technical) */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-4 font-burmese">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Group 1: WEBSITE CONTENT (1 - 5) */}
+          <div className="lg:col-span-7 space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono px-1">
+              Website Content (ပင်မ စာမျက်နှာ ၅ ခု)
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+              <button
+                onClick={() => setActiveTab('home-page')}
+                className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'home-page'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                }`}
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>၁။ Home Page</span>
+              </button>
 
-        <button
-          onClick={() => {
-            handleResetForm();
-            setActiveTab('new-post');
-          }}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'new-post' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>{editingPost ? 'Content ပြင်ရန်' : 'Content အသစ်တင်မည်'}</span>
-        </button>
+              <button
+                onClick={() => setActiveTab('about-us')}
+                className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'about-us'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>၂။ About Us</span>
+              </button>
 
-        <button
-          onClick={() => setActiveTab('copy-editor')}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'copy-editor' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <Type className="w-3.5 h-3.5" />
-          <span>စာသားများ ပြင်ဆင်ရန် (Text Editor)</span>
-        </button>
+              <button
+                onClick={() => setActiveTab('our-services')}
+                className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'our-services'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>၃။ Our Services</span>
+              </button>
 
-        <button
-          onClick={() => setActiveTab('branding')}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'branding' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <ImageIcon className="w-3.5 h-3.5" />
-          <span>Logo & Facebook Profile/Cover</span>
-        </button>
+              <button
+                onClick={() => setActiveTab('posts')}
+                className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'posts' || activeTab === 'new-post'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>၄။ Contents ({posts.length})</span>
+              </button>
 
-        <button
-          onClick={() => setActiveTab('services')}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'services' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>ဝန်ဆောင်မှုများ ({services.length})</span>
-        </button>
+              <button
+                onClick={() => setActiveTab('contact-us')}
+                className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'contact-us'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                }`}
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>၅။ Contact Us</span>
+              </button>
+            </div>
+          </div>
 
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'settings' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <Settings className="w-3.5 h-3.5" />
-          <span>ဖုန်း / LINE / လိပ်စာ</span>
-        </button>
+          {/* Group 2: WEBSITE SETTINGS (6 - 7) & Group 3: MANAGEMENT (8) */}
+          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-4">
+            <div className="space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono px-1">
+                Website Settings
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+                <button
+                  onClick={() => setActiveTab('global-settings')}
+                  className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'global-settings'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>၆။ Global Settings</span>
+                </button>
 
-        <button
-          onClick={() => setActiveTab('database')}
-          className={`px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'database' ? 'bg-sky-600 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
-          }`}
-        >
-          <Database className="w-3.5 h-3.5" />
-          <span>Supabase SQL</span>
-        </button>
+                <button
+                  onClick={() => setActiveTab('static-content')}
+                  className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'static-content'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                  }`}
+                >
+                  <Type className="w-3.5 h-3.5" />
+                  <span>၇။ Static Page Content</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono px-1">
+                Management
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
+                <button
+                  onClick={() => setActiveTab('inquiries')}
+                  className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'inquiries'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                  }`}
+                >
+                  <Inbox className="w-3.5 h-3.5" />
+                  <span>၈။ Inquiries</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Group 4: ADVANCED / TECHNICAL (9) - Visually separated at the bottom */}
+        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono px-1">
+            Advanced / Technical
+          </div>
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap inline-flex items-center gap-1.5 self-start sm:self-auto cursor-pointer ${
+              activeTab === 'database'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>၉။ Supabase SQL</span>
+          </button>
+        </div>
       </div>
 
       {/* Tab 1: POSTS LIST */}
@@ -566,6 +667,36 @@ export const AdminPage: React.FC = () => {
                 className="text-emerald-700 hover:text-emerald-900 text-xs underline font-sans"
               >
                 Dismiss
+              </button>
+            </div>
+          )}
+
+          {deleteSuccessMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-burmese flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{deleteSuccessMsg}</span>
+              </div>
+              <button
+                onClick={() => setDeleteSuccessMsg(null)}
+                className="text-emerald-700 hover:text-emerald-900 text-xs font-bold px-2 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {deleteErrorMsg && !postToDelete && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-burmese flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{deleteErrorMsg}</span>
+              </div>
+              <button
+                onClick={() => setDeleteErrorMsg(null)}
+                className="text-rose-700 hover:text-rose-900 text-xs font-bold px-2 py-0.5"
+              >
+                ✕
               </button>
             </div>
           )}
@@ -649,11 +780,10 @@ export const AdminPage: React.FC = () => {
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm('ဆောင်းပါးကို အမှန်တကယ် ဖျက်လိုပါသလား?')) {
-                              deletePost(post.id);
-                            }
+                            setDeleteErrorMsg(null);
+                            setPostToDelete(post);
                           }}
-                          className="p-1 text-rose-500 hover:text-rose-700"
+                          className="p-1 text-rose-500 hover:text-rose-700 transition-colors"
                           title="Delete post"
                         >
                           <Trash2 className="w-4 h-4 inline" />
@@ -663,6 +793,107 @@ export const AdminPage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {postToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 shadow-2xl space-y-5 text-left">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 font-burmese">
+                    ဆောင်းပါး ဖျက်ရန် အတည်ပြုပါ
+                  </h3>
+                  <p className="text-xs text-slate-500 font-burmese">
+                    ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြင်ဆင်၍ မရပါ
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!isDeletingPost) {
+                    setPostToDelete(null);
+                    setDeleteErrorMsg(null);
+                  }
+                }}
+                disabled={isDeletingPost}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
+              {postToDelete.coverImage && (
+                <img
+                  src={postToDelete.coverImage}
+                  alt=""
+                  className="w-12 h-12 rounded-lg object-cover bg-slate-200 shrink-0 border border-slate-200"
+                />
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800 font-burmese truncate">
+                  {postToDelete.title}
+                </p>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  Category: {postToDelete.categoryId}
+                </p>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-600 font-burmese space-y-1.5 bg-rose-50/50 p-3 rounded-xl border border-rose-100/70">
+              <p className="flex items-center gap-1.5 text-slate-700">
+                <span>• Supabase Database (</span><code className="font-mono text-slate-900 font-semibold bg-white px-1 py-0.5 rounded text-[11px]">public.posts</code><span>) မှ ဖျက်ပါမည်။</span>
+              </p>
+              <p className="flex items-center gap-1.5 text-slate-700">
+                <span>• Supabase Storage (</span><code className="font-mono text-slate-900 font-semibold bg-white px-1 py-0.5 rounded text-[11px]">blog-images</code><span>) ပုံကိုပါ ရှင်းလင်းပါမည်။</span>
+              </p>
+            </div>
+
+            {deleteErrorMsg && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-burmese flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{deleteErrorMsg}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeletingPost}
+                onClick={() => {
+                  setPostToDelete(null);
+                  setDeleteErrorMsg(null);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors font-burmese disabled:opacity-50"
+              >
+                မဖျက်တော့ပါ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingPost}
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors font-burmese flex items-center gap-1.5 shadow-xs disabled:opacity-60 cursor-pointer"
+              >
+                {isDeletingPost ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>ဖျက်နေပါသည်...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>အမှန်တကယ် ဖျက်မည်</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -845,7 +1076,7 @@ export const AdminPage: React.FC = () => {
                     <span>{isUploadingCover ? 'Uploading...' : 'ဖုန်း/ကွန်ပျူတာမှ ဓာတ်ပုံရွေးချယ်မည်'}</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       disabled={isUploadingCover}
                       onChange={(e) => handleFileUpload(e, 'postCover')}
                       className="hidden"
@@ -959,424 +1190,42 @@ export const AdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: TEXT & COPY EDITOR (Burmese copy editor) */}
-      {activeTab === 'copy-editor' && (
-        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 font-burmese">
-                ဝက်ဘ်ဆိုက်ပေါ်ရှိ မြန်မာစာသားများ ပြင်ဆင်ရန် (Text & Copy Editor)
-              </h2>
-              <p className="text-xs text-slate-500 font-burmese">
-                မူလစာမျက်နှာ ခေါင်းစဉ်များ၊ ဖော်ပြချက်များနှင့် ဆောင်ပုဒ်များကို စိတ်ကြိုက် ပြင်ဆင်နိုင်ပါသည်
-              </p>
-            </div>
-            {settingsSaved && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full">
-                <Check className="w-3.5 h-3.5" /> သိမ်းဆည်းပြီးပါပြီ!
-              </span>
-            )}
-          </div>
-
-          <form onSubmit={handleSaveSettings} className="space-y-5 font-burmese text-sm">
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                Hero Main Headline (မူလစာမျက်နှာ အဓိက ခေါင်းစဉ်ကြီး)
-              </label>
-              <textarea
-                rows={2}
-                value={settingsForm.heroHeadline}
-                onChange={(e) => setSettingsForm({ ...settingsForm, heroHeadline: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-semibold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                Hero Supporting Text (ခေါင်းစဉ်ငယ် ရှင်းလင်းချက်)
-              </label>
-              <textarea
-                rows={3}
-                value={settingsForm.heroSupportingText}
-                onChange={(e) => setSettingsForm({ ...settingsForm, heroSupportingText: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs leading-relaxed"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  Trust Statement (ယုံကြည်စိတ်ချရမှု ဆောင်ပုဒ်)
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.heroTrustStatement}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, heroTrustStatement: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  Emotional Reassurance Quote (နွေးထွေးသော မိတ်ဆွေ ကတိစကား)
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.emotionalQuote}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, emotionalQuote: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                တာဝန်ယူမှုဆိုင်ရာ ရှင်းလင်းချက် (Disclaimer Text)
-              </label>
-              <textarea
-                rows={3}
-                value={settingsForm.disclaimer}
-                onChange={(e) => setSettingsForm({ ...settingsForm, disclaimer: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs leading-relaxed"
-              />
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs"
-              >
-                စာသား ပြင်ဆင်ချက်များ သိမ်းဆည်းမည်
-              </button>
-            </div>
-          </form>
-        </div>
+      {/* Tab 5: CONTACT US CMS */}
+      {activeTab === 'contact-us' && (
+        <ContactPageEditor />
       )}
 
-      {/* Tab 4: BRANDING (LOGO, FB PROFILE & COVER) */}
-      {activeTab === 'branding' && (
-        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 font-burmese">
-                Logo နှင့် Facebook Profile / Cover ဓာတ်ပုံများ
-              </h2>
-              <p className="text-xs text-slate-500 font-burmese">
-                လုပ်ငန်း၏ Logo၊ Facebook Page Profile နှင့် Cover Photo များကို တိုက်ရိုက် Upload လုပ်နိုင်ပါသည်
-              </p>
-            </div>
-            {settingsSaved && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full">
-                <Check className="w-3.5 h-3.5" /> သိမ်းဆည်းပြီးပါပြီ!
-              </span>
-            )}
-          </div>
-
-          <form onSubmit={handleSaveSettings} className="space-y-6 font-burmese text-sm">
-            {/* 1. Official Logo */}
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-800">
-                  ၁။ Agency Official Logo (အမှတ်တံဆိပ်)
-                </label>
-                <span className="text-[11px] text-slate-500">Header နှင့် Footer တွင် ပြသမည့် Logo</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                {settingsForm.logoUrl ? (
-                  <img
-                    src={settingsForm.logoUrl}
-                    alt="Logo preview"
-                    className="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-sm"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center text-xs text-slate-500 font-mono">
-                    No Logo
-                  </div>
-                )}
-
-                <div className="space-y-1.5 flex-1">
-                  <label className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-xs">
-                    <Upload className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Logo ဓာတ်ပုံ ရွေးချယ်မည် (Upload)</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, 'logo')}
-                      className="hidden"
-                    />
-                  </label>
-                  <input
-                    type="text"
-                    value={settingsForm.logoUrl || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, logoUrl: e.target.value })}
-                    placeholder="or enter image URL..."
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Facebook Profile Picture */}
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-800">
-                  ၂။ Facebook Page Profile Picture (ပရိုဖိုင်ဓာတ်ပုံ)
-                </label>
-                <span className="text-[11px] text-slate-500">Facebook အဖွဲ့အစည်း ပရိုဖိုင်</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                {settingsForm.facebookProfileUrl ? (
-                  <img
-                    src={settingsForm.facebookProfileUrl}
-                    alt="FB profile preview"
-                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-400 shadow-sm"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
-                    FB
-                  </div>
-                )}
-
-                <div className="space-y-1.5 flex-1">
-                  <label className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-700 cursor-pointer shadow-xs">
-                    <Upload className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Facebook Profile ဓာတ်ပုံ ရွေးချယ်မည်</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, 'fbProfile')}
-                      className="hidden"
-                    />
-                  </label>
-                  <input
-                    type="text"
-                    value={settingsForm.facebookProfileUrl || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, facebookProfileUrl: e.target.value })}
-                    placeholder="or enter profile image URL..."
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Facebook Page URL */}
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                ၃။ Official Facebook Page URL (Facebook Link)
-              </label>
-              <input
-                type="text"
-                value={settingsForm.facebookPageUrl || ''}
-                onChange={(e) => setSettingsForm({ ...settingsForm, facebookPageUrl: e.target.value })}
-                placeholder="https://facebook.com/solution4u.official"
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-              />
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs"
-              >
-                Branding အချက်အလက်များ သိမ်းဆည်းမည်
-              </button>
-            </div>
-          </form>
-        </div>
+      {/* Tab 6: GLOBAL SETTINGS (STAGE 3A CMS) */}
+      {activeTab === 'global-settings' && (
+        <GlobalSettingsEditor />
       )}
 
-      {/* Tab 5: SERVICES MANAGEMENT */}
-      {activeTab === 'services' && (
-        <div className="space-y-4">
-          <h2 className="text-base font-bold text-slate-900 font-burmese">
-            ဝန်ဆောင်မှုများ (၁၂ ခု စီမံခန့်ခွဲခြင်း)
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {services.map((svc) => (
-              <div
-                key={svc.id}
-                className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-sky-700">#{svc.order}</span>
-                    <h3 className="text-sm font-bold text-slate-900 font-burmese">{svc.title}</h3>
-                  </div>
-
-                  <button
-                    onClick={() => updateService({ ...svc, isActive: !svc.isActive })}
-                    className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                      svc.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {svc.isActive ? 'Active' : 'Inactive'}
-                  </button>
-                </div>
-
-                <p className="text-xs text-slate-500 font-burmese line-clamp-2">
-                  {svc.shortDescription}
-                </p>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-slate-600">
-                  <span className="text-slate-400 font-mono">{svc.category}</span>
-                  <button
-                    onClick={() => navigateTo('service-detail', svc.slug)}
-                    className="text-sky-600 hover:underline font-burmese"
-                  >
-                    Live ကြည့်ရန် →
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Tab 2: ABOUT US (STAGE 3C CMS) */}
+      {activeTab === 'about-us' && (
+        <AboutPageEditor />
       )}
 
-      {/* Tab 6: CONTACT & SETTINGS */}
-      {activeTab === 'settings' && (
-        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 font-burmese">
-                အေဂျင်စီ ဆက်သွယ်ရန် ဖုန်းနှင့် လိပ်စာ
-              </h2>
-              <p className="text-xs text-slate-500 font-burmese">
-                ဖုန်းနံပါတ်၊ WhatsApp၊ LINE ID နှင့် လိပ်စာများကို ဤနေရာတွင် ပြင်ဆင်နိုင်ပါသည်
-              </p>
-            </div>
-            {settingsSaved && (
-              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-bold bg-emerald-50 px-3 py-1 rounded-full">
-                <Check className="w-3.5 h-3.5" /> သိမ်းဆည်းပြီးပါပြီ!
-              </span>
-            )}
-          </div>
-
-          <form onSubmit={handleSaveSettings} className="space-y-4 font-burmese text-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  လုပ်ငန်းအမည် (Agency Name)
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.agencyName}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, agencyName: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  ဖုန်းနံပါတ် (Phone)
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.phone}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  LINE ID
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.lineId}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, lineId: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={settingsForm.email}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  WhatsApp Link
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.whatsappUrl}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, whatsappUrl: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Messenger Link
-                </label>
-                <input
-                  type="text"
-                  value={settingsForm.messengerUrl}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, messengerUrl: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ရုံးတည်နေရာ လိပ်စာ (Office Address)
-              </label>
-              <textarea
-                rows={2}
-                value={settingsForm.address}
-                onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ရုံးဖွင့်ချိန် (တနင်္လာ မှ သောကြာ)
-              </label>
-              <input
-                type="text"
-                value={settingsForm.businessHoursWeekday}
-                onChange={(e) => setSettingsForm({ ...settingsForm, businessHoursWeekday: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ရုံးပိတ်ချိန် (စနေ၊ တနင်္ဂနွေ အသိပေးချက်)
-              </label>
-              <input
-                type="text"
-                value={settingsForm.businessHoursWeekend}
-                onChange={(e) => setSettingsForm({ ...settingsForm, businessHoursWeekend: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
-              />
-            </div>
-
-            <div className="pt-3">
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs"
-              >
-                Settings သိမ်းဆည်းမည်
-              </button>
-            </div>
-          </form>
-        </div>
+      {/* Tab 1: HOME PAGE (STAGE 3B CMS) */}
+      {activeTab === 'home-page' && (
+        <HomePageEditor />
       )}
 
-      {/* Tab 7: SUPABASE CLOUD SYNC & SCHEMA & DOWNLOAD */}
+      {/* Tab 3: OUR SERVICES (STAGE 3D CMS) */}
+      {activeTab === 'our-services' && (
+        <ServicesEditor />
+      )}
+
+      {/* Tab 8: INQUIRIES (STAGE 3E INBOX) */}
+      {activeTab === 'inquiries' && (
+        <InquiriesInbox />
+      )}
+
+      {/* Tab 7: STATIC PAGE CONTENT CMS */}
+      {activeTab === 'static-content' && (
+        <StaticContentEditor />
+      )}
+
+      {/* Tab 8: SUPABASE CLOUD SYNC & SCHEMA & DOWNLOAD */}
       {activeTab === 'database' && (
         <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
           {/* Netlify Deployment Package Section */}

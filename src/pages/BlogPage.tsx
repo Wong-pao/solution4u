@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Search, Calendar, Clock, ChevronRight, BookmarkCheck, ArrowRight } from 'lucide-react';
 
 export const BlogPage: React.FC = () => {
-  const { posts, categories, navigateTo } = useApp();
+  const { posts, categories, navigateTo, staticPageContent } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -31,13 +31,13 @@ export const BlogPage: React.FC = () => {
       <section className="bg-gradient-to-b from-sky-50/60 to-white pt-12 pb-14 border-b border-slate-200/80">
         <div className="max-w-4xl mx-auto px-4 text-center space-y-4">
           <span className="text-xs font-semibold uppercase tracking-widest text-sky-700">
-            KNOWLEDGE CENTER
+            {staticPageContent?.blogPageKicker || "KNOWLEDGE CENTER"}
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-burmese leading-snug">
-            သုတစုံလင် ဗဟုသုတစင်တာ
+            {staticPageContent?.blogPageTitle || "သုတစုံလင် ဗဟုသုတစင်တာ"}
           </h1>
           <p className="text-sm sm:text-base text-slate-600 font-burmese max-w-2xl mx-auto leading-relaxed">
-            ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများ နေ့စဉ်သိရှိထားသင့်သည့် ဗီဇာ၊ Work Permit၊ စာရွက်စာတမ်းနှင့် လဝက ဆိုင်ရာ လက်တွေ့အသုံးဝင် အချက်အလက်များ
+            {staticPageContent?.blogPageSubtitle || "ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများ နေ့စဉ်သိရှိထားသင့်သည့် ဗီဇာ၊ Work Permit၊ စာရွက်စာတမ်းနှင့် လဝက ဆိုင်ရာ လက်တွေ့အသုံးဝင် အချက်အလက်များ"}
           </p>
         </div>
       </section>
@@ -88,16 +88,26 @@ export const BlogPage: React.FC = () => {
         {/* Featured Post Spotlight (shown when not filtering by search query) */}
         {!searchQuery && selectedCategory === 'all' && featuredPost && (
           <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigateTo('blog-detail', featuredPost.slug);
+              }
+            }}
             onClick={() => navigateTo('blog-detail', featuredPost.slug)}
-            className="group bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-md transition-all cursor-pointer grid grid-cols-1 lg:grid-cols-12"
+            className="group bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-md transition-all cursor-pointer grid grid-cols-1 lg:grid-cols-12 focus:ring-2 focus:ring-sky-500 outline-hidden"
           >
-            <div className="lg:col-span-7 aspect-[16/10] lg:aspect-auto relative bg-slate-100 overflow-hidden">
+            <div className="lg:col-span-7 aspect-[16/10] lg:aspect-[16/9] relative bg-slate-100 overflow-hidden">
               <img
                 src={featuredPost.coverImage}
                 alt={featuredPost.title}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                 loading="eager"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.src = "/src/assets/images/blog_cover_banking_1790239743026.jpg";
+                }}
               />
               <div className="absolute top-4 left-4 bg-sky-600 text-white px-3 py-1 rounded-lg text-xs font-semibold font-burmese shadow-sm">
                 အထူးဆောင်းပါး
@@ -137,8 +147,15 @@ export const BlogPage: React.FC = () => {
           {filteredPosts.map((post) => (
             <article
               key={post.id}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  navigateTo('blog-detail', post.slug);
+                }
+              }}
               onClick={() => navigateTo('blog-detail', post.slug)}
-              className="group bg-white rounded-2xl overflow-hidden border border-slate-200/90 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className="group bg-white rounded-2xl overflow-hidden border border-slate-200/90 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between focus:ring-2 focus:ring-sky-500 outline-hidden"
             >
               <div>
                 <div className="aspect-[16/10] bg-slate-100 overflow-hidden relative">
@@ -148,6 +165,9 @@ export const BlogPage: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.src = "/src/assets/images/blog_cover_workpermit_1790239756019.jpg";
+                    }}
                   />
                   <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-800 shadow-xs font-burmese">
                     {getCategoryName(post.categoryId)}

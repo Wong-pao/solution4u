@@ -5,12 +5,13 @@ import { Phone, MessageCircle, Menu, X, ShieldCheck, HeartHandshake } from 'luci
 export const Navbar: React.FC = () => {
   const { currentRoute, navigateTo, settings, openConsultModal } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const navLinks: { label: string; sub: string; route: AppRoute }[] = [
     { label: 'Home', sub: 'မူလစာမျက်နှာ', route: 'home' },
     { label: 'About Us', sub: 'ကျွန်ုပ်တို့အကြောင်း', route: 'about' },
     { label: 'Our Services', sub: 'ဝန်ဆောင်မှုများ', route: 'services' },
-    { label: 'Contents', sub: 'သုတအချက်အလက်', route: 'blog' },
+    { label: 'Content', sub: 'သတင်းနှင့် ဆောင်းပါးများ', route: 'blog' },
     { label: 'Contact Us', sub: 'ဆက်သွယ်ရန်', route: 'contact' },
   ];
 
@@ -24,28 +25,29 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-18">
           {/* Zone 1: Single text element wordmark with custom logo support */}
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <button
               onClick={() => handleNav('home')}
-              className="group text-left flex items-center gap-3 focus:outline-hidden"
+              className="group text-left flex items-center gap-2 sm:gap-3 focus:outline-hidden"
               aria-label="Solution for You Home"
             >
-              {settings.logoUrl ? (
+              {settings.logoUrl && !logoError ? (
                 <img
                   src={settings.logoUrl}
                   alt={settings.agencyName}
-                  className="w-10 h-10 rounded-xl object-cover shadow-sm transition-transform group-hover:scale-105"
+                  onError={() => setLogoError(true)}
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-sm transition-transform group-hover:scale-105 shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-lg shadow-sm transition-transform group-hover:scale-105">
-                  <HeartHandshake className="w-6 h-6 text-white" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-lg shadow-sm transition-transform group-hover:scale-105 shrink-0">
+                  <HeartHandshake className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               )}
               <div className="flex flex-col">
-                <span className="font-bold text-slate-900 text-lg leading-tight tracking-tight">
+                <span className="font-bold text-slate-900 text-base sm:text-lg leading-tight tracking-tight whitespace-nowrap">
                   Solution for You
                 </span>
-                <span className="text-xs text-sky-700 font-medium font-burmese">
+                <span className="text-xs text-sky-700 font-medium font-burmese whitespace-nowrap">
                   အဖြေက ဒီမှာပါ
                 </span>
               </div>
@@ -53,7 +55,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Zone 2: 5 clean text navigation links */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium text-slate-600">
+          <nav className="hidden md:flex items-center md:gap-3.5 lg:gap-5 xl:gap-8 text-sm lg:text-[15px] font-medium text-slate-600">
             {navLinks.map((item) => {
               const isActive =
                 currentRoute === item.route ||
@@ -70,8 +72,8 @@ export const Navbar: React.FC = () => {
                   }`}
                 >
                   <div className="flex flex-col items-center">
-                    <span className="leading-tight">{item.label}</span>
-                    <span className="text-[10px] text-slate-400 group-hover:text-sky-600 font-burmese transition-colors">
+                    <span className="leading-snug">{item.label}</span>
+                    <span className="text-[11.5px] leading-snug mt-0.5 text-slate-500 group-hover:text-sky-600 font-burmese transition-colors">
                       {item.sub}
                     </span>
                   </div>
@@ -84,10 +86,10 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Zone 3: 1–2 primary actions */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-2.5 xl:gap-3 shrink-0">
             <a
               href={`tel:${settings.phone}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:text-sky-700 hover:bg-slate-100 rounded-lg transition-colors whitespace-nowrap"
+              className="hidden xl:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:text-sky-700 hover:bg-slate-100 rounded-lg transition-colors whitespace-nowrap"
             >
               <Phone className="w-3.5 h-3.5 text-sky-600" />
               <span>{settings.phone}</span>
@@ -112,17 +114,19 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile hamburger button */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex md:hidden items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => openConsultModal()}
-              className="px-2.5 py-1.5 text-xs font-medium text-white bg-sky-600 rounded-lg shadow-xs"
+              className="px-2.5 py-1.5 text-xs font-medium text-white bg-sky-600 rounded-lg shadow-xs whitespace-nowrap font-burmese"
             >
               တိုင်ပင်ရန်
             </button>
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-hidden"
+              className="p-1.5 sm:p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-hidden"
               aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -142,14 +146,14 @@ export const Navbar: React.FC = () => {
               <button
                 key={item.route}
                 onClick={() => handleNav(item.route)}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-between ${
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors flex items-center justify-between ${
                   isActive
                     ? 'bg-sky-50 text-sky-700 font-semibold'
                     : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 <span>{item.label}</span>
-                <span className="text-xs text-slate-400 font-burmese">{item.sub}</span>
+                <span className="text-[13px] text-slate-500 font-burmese">{item.sub}</span>
               </button>
             );
           })}

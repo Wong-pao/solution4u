@@ -16,12 +16,24 @@ import {
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
-  const { services, posts, categories, navigateTo, openConsultModal, settings } = useApp();
+  const {
+    services,
+    posts,
+    categories,
+    navigateTo,
+    openConsultModal,
+    settings,
+    trustPillarsContent,
+    workflowStepsContent,
+    staticPageContent,
+  } = useApp();
 
   const activeServices = services.filter((s) => s.isActive);
   const recentPosts = posts.filter((p) => p.status === 'published').slice(0, 4);
 
-  const trustPillars = [
+  const pillarIcons = [ShieldCheck, Sparkles, FileText, Clock, Heart];
+
+  const defaultTrustPillars = [
     {
       num: '01',
       title: 'အစအဆုံး တာဝန်ယူပေးခြင်း',
@@ -54,13 +66,39 @@ export const HomePage: React.FC = () => {
     },
   ];
 
-  const steps = [
-    { num: '01', title: 'ဆက်သွယ်ပါ', desc: 'ဖုန်း၊ WhatsApp၊ Messenger သို့မဟုတ် LINE မှတစ်ဆင့် ဆက်သွယ်ပါ။' },
+  const iconLookup: Record<string, React.ComponentType<{ className?: string }>> = {
+    ShieldCheck,
+    Sparkles,
+    FileText,
+    Clock,
+    Heart,
+    CheckCircle2,
+    UserCheck,
+  };
+
+  const displayTrustPillars = trustPillarsContent?.pillars?.length
+    ? trustPillarsContent.pillars.map((p, idx) => ({
+        ...p,
+        icon: (p.icon && iconLookup[p.icon]) || pillarIcons[idx % pillarIcons.length],
+      }))
+    : defaultTrustPillars;
+
+  const defaultSteps = [
+    { num: '01', title: 'ဆက်သွယ်ပါ', desc: 'Messenger၊ ဖုန်း၊ LINE သို့မဟုတ် Telegram မှတစ်ဆင့် ဆက်သွယ်ပါ။' },
     { num: '02', title: 'မိမိလိုအပ်ချက်ကို ပြောပြပါ', desc: 'ဗီဇာ၊ ဘဏ်၊ နေထိုင်ရေး စသည့် ကြုံတွေ့နေရသော အခက်အခဲကို ပြောပြပါ။' },
     { num: '03', title: 'လိုအပ်သော အချက်အလက်များကို စစ်ဆေးပေးမည်', desc: 'ကိုင်ဆောင်ထားသော စာရွက်စာတမ်းများ၏ သက်တမ်းနှင့် လိုအပ်ချက်များကို အခမဲ့ စစ်ဆေးပေးပါမည်။' },
     { num: '04', title: 'လုပ်ငန်းစဉ်ကို စတင်ဆောင်ရွက်မည်', desc: 'ရှင်းလင်းသော အစီအစဉ်အတိုင်း တိကျမြန်ဆန်စွာ ဆောင်ရွက်ပေးပါမည်။' },
     { num: '05', title: 'ပြီးဆုံးသည်အထိ ကူညီပေးမည်', desc: 'လူကြီးမင်းတို့ စိတ်အေးချမ်းသာစွာ အောင်မြင်ပြီးမြောက်သည်အထိ တာဝန်ယူပေးပါမည်။' },
   ];
+
+  const displaySteps = workflowStepsContent?.steps?.length
+    ? workflowStepsContent.steps.map((s) => ({
+        ...s,
+        desc: s.desc?.includes('WhatsApp')
+          ? s.desc.replace('ဖုန်း၊ WhatsApp သို့မဟုတ် LINE', 'Messenger၊ ဖုန်း၊ LINE သို့မဟုတ် Telegram').replace(/WhatsApp/g, 'Messenger')
+          : s.desc,
+      }))
+    : defaultSteps;
 
   const getCategoryName = (catId: string) => {
     const found = categories.find((c) => c.id === catId);
@@ -71,23 +109,56 @@ export const HomePage: React.FC = () => {
     <div className="space-y-20 sm:space-y-28 pb-20">
       {/* 1. HERO SECTION */}
       <section className="relative pt-8 pb-16 lg:pt-14 lg:pb-24 overflow-hidden border-b border-slate-200/70 bg-gradient-to-b from-white via-sky-50/30 to-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            {/* Left Content */}
-            <div className="lg:col-span-7 space-y-6">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* Left Column on Desktop / Sequential Mobile Flow */}
+            <div className="lg:col-span-7 space-y-5 lg:space-y-6">
               {/* Trust statement label */}
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-sky-800 bg-sky-100/70 px-3 py-1.5 rounded-full border border-sky-200/80 font-burmese">
-                <UserCheck className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+              <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-sky-900 bg-sky-100/80 px-3.5 py-1.5 rounded-full border border-sky-200 shadow-2xs font-burmese">
+                <UserCheck className="w-4 h-4 text-sky-700 shrink-0" />
                 <span>{settings.heroTrustStatement || "Bangkok မှာ အားကိုးစွာ တိုင်ပင်နိုင်တဲ့ မိတ်ဆွေတစ်ယောက်"}</span>
               </div>
 
-              {/* Main Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-[1.3] font-burmese tracking-tight">
-                {settings.heroHeadline || "ဗီဇာ၊ စာရွက်စာတမ်းနဲ့ နေထိုင်ရေးကိစ္စတွေကို တစ်နေရာတည်းမှာ အလွယ်တကူ ဖြေရှင်းလိုက်ပါ။"}
+              {/* Main Headline - Exactly 2 lines, responsive typography, zero internal wrapping */}
+              <h1 className="text-[clamp(13px,3.8vw,19px)] sm:text-[22px] lg:text-[24px] xl:text-[27px] font-bold text-slate-900 leading-[1.35] sm:leading-[1.38] font-burmese tracking-normal w-full max-w-full">
+                <span className="block whitespace-nowrap">
+                  ဗီဇာ၊ စာရွက်စာတမ်းနဲ့ အထွေထွေဝန်ဆောင်မှုများကို
+                </span>
+                <span className="block whitespace-nowrap mt-1 sm:mt-1.5 text-slate-800">
+                  တစ်နေရာတည်းမှာ စိတ်အေးချမ်းစွာ ဖြေရှင်းလိုက်ပါ
+                </span>
               </h1>
 
+              {/* MOBILE-ONLY HERO IMAGE CARRIER: Placed immediately after Headline on mobile */}
+              <div className="block lg:hidden my-1">
+                <div className="relative rounded-2xl overflow-hidden shadow-lg border border-slate-200/80 bg-slate-100 aspect-[16/10] group">
+                  <img
+                    src={settings.heroImageUrl || "/src/assets/images/hero_bangkok_community_1790239728277.jpg"}
+                    alt="Solution for You Bangkok Myanmar Community Assistance"
+                    className="w-full h-full object-cover object-center"
+                    loading="eager"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.src = "/src/assets/images/hero_bangkok_community_1790239728277.jpg";
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-900/25 to-transparent pointer-events-none" />
+
+                  {/* Hero Badge attached to Image */}
+                  <div className="absolute bottom-3 left-3 right-3 text-white p-2.5 rounded-xl bg-slate-900/65 backdrop-blur-xs border border-white/15 shadow-sm">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-sky-300">{settings.heroBadgeTitle || "Solution for You"}</span>
+                      <span className="text-slate-300">Bangkok, Thailand</span>
+                    </div>
+                    <p className="text-[11px] text-slate-200 mt-0.5 font-burmese leading-relaxed">
+                      {settings.heroBadgeSubtitle || "မြန်မာမိတ်ဆွေများ အားကိုးစွာ တိုင်ပင်နိုင်သော အကူအညီပေးရေး ဝန်ဆောင်မှု"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Supporting Text */}
-              <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-burmese max-w-2xl">
+              <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-burmese max-w-2xl">
                 {settings.heroSupportingText || "ဘန်ကောက်မှာ နေထိုင်အလုပ်လုပ်ကိုင်နေကြတဲ့ မြန်မာမိတ်ဆွေများအတွက် လွယ်ကူ၊ မြန်ဆန်၊ စိတ်ချရသော ဝန်ဆောင်မှုများကို အစအဆုံး တာဝန်ယူ ကူညီပေးနေပါတယ်။"}
               </p>
 
@@ -111,34 +182,37 @@ export const HomePage: React.FC = () => {
               </div>
 
               {/* Emotional reassurance callout */}
-              <div className="pt-4 border-t border-slate-200/80 flex items-center gap-3 text-xs sm:text-sm text-slate-500 font-burmese">
-                <span className="text-amber-500 text-base">“</span>
-                <p className="italic text-slate-700 font-medium">
+              <div className="pt-4 border-t border-slate-200/80 flex items-center gap-2.5 font-burmese">
+                <span className="text-amber-500 text-xl font-serif select-none">“</span>
+                <p className="italic text-slate-700 font-medium text-xs sm:text-sm leading-relaxed">
                   {settings.emotionalQuote || "ဘန်ကောက်မှာ ကိုယ့်ဘက်ကနေ ကူညီပေးမယ့် မိတ်ဆွေတစ်ယောက်ရှိနေတယ်"}
                 </p>
-                <span className="text-amber-500 text-base">”</span>
+                <span className="text-amber-500 text-xl font-serif select-none">”</span>
               </div>
             </div>
 
-            {/* Right Visual Carrier */}
-            <div className="lg:col-span-5 relative">
+            {/* DESKTOP-ONLY HERO IMAGE CARRIER: Sits in Right Column on Desktop (lg+) */}
+            <div className="hidden lg:block lg:col-span-5 relative">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200/80 bg-slate-100 aspect-[16/10] lg:aspect-[4/3] group">
                 <img
-                  src="/src/assets/images/hero_bangkok_community_1790239728277.jpg"
+                  src={settings.heroImageUrl || "/src/assets/images/hero_bangkok_community_1790239728277.jpg"}
                   alt="Solution for You Bangkok Myanmar Community Assistance"
                   className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-500"
                   loading="eager"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.src = "/src/assets/images/hero_bangkok_community_1790239728277.jpg";
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-900/20 to-transparent pointer-events-none" />
 
                 <div className="absolute bottom-4 left-4 right-4 text-white p-3 rounded-xl bg-slate-900/60 backdrop-blur-xs border border-white/15">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-sky-300">Solution for You</span>
+                    <span className="font-semibold text-sky-300">{settings.heroBadgeTitle || "Solution for You"}</span>
                     <span className="text-slate-300">Bangkok, Thailand</span>
                   </div>
                   <p className="text-xs text-slate-200 mt-1 font-burmese">
-                    မြန်မာမိတ်ဆွေများ အားကိုးစွာ တိုင်ပင်နိုင်သော အကူအညီပေးရေး ဝန်ဆောင်မှု
+                    {settings.heroBadgeSubtitle || "မြန်မာမိတ်ဆွေများ အားကိုးစွာ တိုင်ပင်နိုင်သော အကူအညီပေးရေး ဝန်ဆောင်မှု"}
                   </p>
                 </div>
               </div>
@@ -151,37 +225,93 @@ export const HomePage: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14 space-y-2">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-burmese">
-            ဘာကိစ္စအတွက် ကူညီပေးရမလဲ?
+            {settings.servicesHeadline || "ဘာကိစ္စအတွက် ကူညီပေးရမလဲ?"}
           </h2>
           <p className="text-sm sm:text-base text-slate-600 font-burmese">
-            ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်အကောင့်နှင့် နေထိုင်ရေးဆိုင်ရာ အဓိက ဝန်ဆောင်မှု (၁၂) မျိုး
+            {settings.servicesSubtext || "ဗီဇာ၊ စာရွက်စာတမ်း၊ ဘဏ်အကောင့်နှင့် နေထိုင်ရေးဆိုင်ရာ အဓိက ဝန်ဆောင်မှု (၁၂) မျိုး"}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {activeServices.map((svc) => (
             <div
               key={svc.id}
-              onClick={() => navigateTo('service-detail', svc.slug)}
-              className="group bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+              className="group bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-200 flex flex-col justify-between"
             >
-              <div className="space-y-3">
-                <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center group-hover:bg-sky-600 group-hover:text-white transition-colors">
-                  <ServiceIcon name={svc.iconName} className="w-5 h-5" />
+              <div className="space-y-3.5">
+                {/* 1. Header: Icon + Title */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0 group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                    <ServiceIcon name={svc.iconName} className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3
+                      onClick={() => navigateTo('service-detail', svc.slug)}
+                      className="text-base font-bold text-slate-900 group-hover:text-sky-700 transition-colors font-burmese leading-snug cursor-pointer line-clamp-2"
+                      title={svc.title}
+                    >
+                      {svc.title}
+                    </h3>
+                  </div>
                 </div>
 
-                <h3 className="text-base font-bold text-slate-900 group-hover:text-sky-700 transition-colors font-burmese leading-snug">
-                  {svc.title}
-                </h3>
+                {/* 2. Service Image with Short Summary subtle overlay (or clean fallback if no image) */}
+                {svc.coverImage ? (
+                  <div
+                    onClick={() => navigateTo('service-detail', svc.slug)}
+                    className="w-full aspect-[16/10] rounded-xl overflow-hidden relative cursor-pointer border border-slate-200/80 bg-slate-900 shadow-2xs group/img"
+                  >
+                    <img
+                      src={svc.coverImage}
+                      alt={svc.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover object-center group-hover/img:scale-103 transition-transform duration-300"
+                      onError={(e) => {
+                        const container = e.currentTarget.parentElement;
+                        if (container) {
+                          container.style.display = 'none';
+                        }
+                      }}
+                    />
+                    {/* Subtle soft gradient base behind the floating panel */}
+                    <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/25 to-transparent pointer-events-none" />
 
-                <p className="text-xs text-slate-600 leading-relaxed font-burmese line-clamp-3">
-                  {svc.shortDescription}
-                </p>
+                    {/* Premium Floating Glass Summary Panel - Short Summary ONLY */}
+                    <div className="absolute inset-x-2.5 bottom-2.5 sm:inset-x-3.5 sm:bottom-3.5 p-2.5 sm:p-3 rounded-xl bg-[#0c2340]/80 backdrop-blur-md border border-white/20 shadow-md shadow-sky-950/25 pointer-events-none">
+                      <p className="text-xs sm:text-[13px] text-white/95 font-medium leading-relaxed font-burmese line-clamp-2">
+                        {svc.shortDescription}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Fallback when no image is uploaded */
+                  <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-3 shadow-2xs">
+                    <p className="text-xs sm:text-[13px] text-slate-600 font-medium leading-relaxed font-burmese line-clamp-2">
+                      {svc.shortDescription}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-4 mt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-sky-700 font-burmese">
-                <span>အသေးစိတ်ကြည့်ရန်</span>
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              {/* 3. Action Buttons below */}
+              <div className="pt-3.5 mt-3 border-t border-slate-100 flex items-center justify-between gap-2 font-burmese text-xs">
+                <button
+                  type="button"
+                  onClick={() => navigateTo('service-detail', svc.slug)}
+                  className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:text-sky-800 transition-colors"
+                >
+                  <span>အသေးစိတ်ကြည့်ရန်</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => openConsultModal(svc.title)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-sky-50 hover:text-sky-700 text-slate-700 font-medium rounded-lg transition-colors inline-flex items-center gap-1"
+                >
+                  <MessageCircle className="w-3 h-3 text-sky-600" />
+                  <span>တိုင်ပင်ရန်</span>
+                </button>
               </div>
             </div>
           ))}
@@ -203,18 +333,18 @@ export const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl mb-12 space-y-2">
             <span className="text-xs uppercase tracking-widest text-sky-400 font-semibold">
-              OUR PROMISE
+              {trustPillarsContent?.sectionKicker || "OUR PROMISE"}
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-burmese">
-              Solution for You ကို ဘာကြောင့် ရွေးချယ်ကြတာလဲ?
+              {trustPillarsContent?.sectionTitle || "Solution for You ကို ဘာကြောင့် ရွေးချယ်ကြတာလဲ?"}
             </h2>
             <p className="text-sm text-slate-400 font-burmese">
-              ခေါင်းခဲစရာ ကိစ္စများကို စေတနာအပြည့်ဖြင့် အမှန်ကန်ဆုံးနှင့် အမြန်ဆန်ဆုံး ကူညီဖြေရှင်းပေးပါမည်။
+              {trustPillarsContent?.sectionSubtitle || "ခေါင်းခဲစရာ ကိစ္စများကို စေတနာအပြည့်ဖြင့် အမှန်ကန်ဆုံးနှင့် အမြန်ဆန်ဆုံး ကူညီဖြေရှင်းပေးပါမည်။"}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {trustPillars.map((item) => {
+            {displayTrustPillars.map((item) => {
               const IconComponent = item.icon;
               return (
                 <div
@@ -248,18 +378,18 @@ export const HomePage: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-sky-600">
-            SIMPLE WORKFLOW
+            {workflowStepsContent?.sectionKicker || "SIMPLE WORKFLOW"}
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-burmese">
-            လုပ်ငန်းစဉ် ၅ ဆင့်
+            {workflowStepsContent?.sectionTitle || "လုပ်ငန်းစဉ် ၅ ဆင့်"}
           </h2>
           <p className="text-sm text-slate-600 font-burmese">
-            ရှုပ်ထွေးမှုမရှိဘဲ ရိုးရှင်းလွယ်ကူစွာဖြင့် အောင်မြင်အောင် ကူညီဆောင်ရွက်ပေးပုံ
+            {workflowStepsContent?.sectionSubtitle || "ရှုပ်ထွေးမှုမရှိဘဲ ရိုးရှင်းလူလွယ်စွာဖြင့် အောင်မြင်အောင် ကူညီဆောင်ရွက်ပေးပုံ"}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
-          {steps.map((step, idx) => (
+          {displaySteps.map((step, idx) => (
             <div
               key={step.num}
               className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-3 relative group"
@@ -268,7 +398,7 @@ export const HomePage: React.FC = () => {
                 <span className="text-xs font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-mono">
                   {step.num}
                 </span>
-                {idx < steps.length - 1 && (
+                {idx < displaySteps.length - 1 && (
                   <span className="hidden md:inline-block w-4 h-px bg-slate-200 ml-auto" />
                 )}
               </div>
@@ -290,13 +420,13 @@ export const HomePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
           <div className="space-y-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-sky-600">
-              KNOWLEDGE CENTER
+              {staticPageContent?.homeKnowledgeKicker || "KNOWLEDGE CENTER"}
             </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-burmese">
-              အသုံးဝင်တဲ့ အချက်အလက်များ
+              {staticPageContent?.homeKnowledgeTitle || "အသုံးဝင်တဲ့ အချက်အလက်များ"}
             </h2>
             <p className="text-sm text-slate-600 font-burmese">
-              ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများအတွက် လက်တွေ့အသုံးဝင်မယ့် သတင်းအချက်အလက်များ
+              {staticPageContent?.homeKnowledgeSubtitle || "ထိုင်းနိုင်ငံရောက် မြန်မာမိတ်ဆွေများအတွက် လက်တွေ့အသုံးဝင်မယ့် သတင်းအချက်အလက်များ"}
             </p>
           </div>
 
@@ -324,6 +454,9 @@ export const HomePage: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.src = "/src/assets/images/blog_cover_banking_1790239743026.jpg";
+                    }}
                   />
                   <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-800 shadow-xs font-burmese">
                     {getCategoryName(post.categoryId)}
@@ -369,11 +502,11 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 <h3 className="text-2xl sm:text-3xl font-bold text-white leading-snug">
-                  နေ့စဉ် အချိန်နှင့်တပြေးညီ သတင်းများနှင့် အချက်အလက်များ
+                  {staticPageContent?.homeFacebookTitle || "နေ့စဉ် အချိန်နှင့်တပြေးညီ သတင်းများနှင့် အချက်အလက်များ"}
                 </h3>
 
                 <p className="text-sm text-slate-300 leading-relaxed max-w-xl">
-                  ထိုင်းနိုင်ငံ လဝက သတင်းများ၊ ဗီဇာနှင့် Work Permit အပြောင်းအလဲများ၊ ဘဏ်နှင့် နေထိုင်ရေးဆိုင်ရာ အရေးကြီး အသိပေးချက်များကို ကျွန်ုပ်တို့၏ Official Facebook Page တွင် အပတ်စဉ် ပုံမှန် ၄-၅ ပုဒ် တင်ဆက်ပေးနေပါသည်။
+                  {staticPageContent?.homeFacebookSubtitle || "ထိုင်းနိုင်ငံ လဝက သတင်းများ၊ ဗီဇာနှင့် Work Permit အပြောင်းအလဲများ၊ ဘဏ်နှင့် နေထိုင်ရေးဆိုင်ရာ အရေးကြီး အသိပေးချက်များကို ကျွန်ုပ်တို့၏ Official Facebook Page တွင် အပတ်စဉ် ပုံမှန် ၄-၅ ပုဒ် တင်ဆက်ပေးနေပါသည်။"}
                 </p>
               </div>
 
@@ -408,6 +541,9 @@ export const HomePage: React.FC = () => {
                     src={settings.facebookProfileUrl || settings.logoUrl}
                     alt="Solution for You Profile"
                     className="w-24 h-24 rounded-full object-cover border-4 border-blue-400 shadow-xl"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
                   />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-bold border-4 border-blue-400 shadow-xl">
@@ -420,15 +556,15 @@ export const HomePage: React.FC = () => {
               </div>
 
               <div className="space-y-1 font-burmese">
-                <h4 className="text-base font-bold text-white">Solution for You - အဖြေက ဒီမှာပါ</h4>
-                <p className="text-xs text-sky-300">Bangkok Myanmar Service Agency</p>
+                <h4 className="text-base font-bold text-white">{staticPageContent?.brandProfileName || "Solution for You - အဖြေက ဒီမှာပါ"}</h4>
+                <p className="text-xs text-sky-300">{staticPageContent?.brandProfileSubtitle || "Bangkok Myanmar Service Agency"}</p>
                 <p className="text-[11px] text-slate-400 pt-1">
-                  မိတ်ဆွေများအတွက် စိတ်ချရသော အကူအညီ
+                  {staticPageContent?.brandProfileSupportingText || "မိတ်ဆွေများအတွက် စိတ်ချရသော အကူအညီ"}
                 </p>
               </div>
 
               <div className="pt-2 text-xs text-slate-400 font-burmese">
-                <span>Facebook & Messenger တွင် ၂၄ နာရီ မက်ဆေ့ခ်ျ ပို့ထားနိုင်ပါသည်</span>
+                <span>{staticPageContent?.brandProfileMessengerHours || "Facebook & Messenger တွင် ၂၄ နာရီ မက်ဆေ့ခ်ျ ပို့ထားနိုင်ပါသည်"}</span>
               </div>
             </div>
           </div>
@@ -442,11 +578,11 @@ export const HomePage: React.FC = () => {
           
           <div className="max-w-2xl space-y-5 relative z-10">
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-burmese leading-snug">
-              အခက်အခဲရှိနေပါသလား?
+              {staticPageContent?.homeCtaTitle || "အခက်အခဲရှိနေပါသလား?"}
             </h2>
 
             <p className="text-sm sm:text-base text-sky-100 leading-relaxed font-burmese">
-              မိမိကိုယ်တိုင် ရှုပ်ထွေးစွာ ဖြေရှင်းနေစရာမလိုပါဘူး။ လိုအပ်တာကို ပြောပြပါ။ Solution for You က အကောင်းဆုံးဖြေရှင်းနိုင်မယ့် လမ်းကြောင်းကို အတူရှာပေးပါမယ်။
+              {staticPageContent?.homeCtaSubtitle || "မိမိကိုယ်တိုင် ရှုပ်ထွေးစွာ ဖြေရှင်းနေစရာမလိုပါဘူး။ လိုအပ်တာကို ပြောပြပါ။ Solution for You က အကောင်းဆုံးဖြေရှင်းနိုင်မယ့် လမ်းကြောင်းကို အတူရှာပေးပါမယ်။"}
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 font-burmese">
