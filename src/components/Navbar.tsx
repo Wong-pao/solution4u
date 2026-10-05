@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp, AppRoute } from '../context/AppContext';
-import { Phone, MessageCircle, Menu, X, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { Phone, MessageCircle, Menu, X, HeartHandshake } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { currentRoute, navigateTo, settings, openConsultModal } = useApp();
@@ -10,8 +10,8 @@ export const Navbar: React.FC = () => {
   const navLinks: { label: string; sub: string; route: AppRoute }[] = [
     { label: 'Home', sub: 'မူလစာမျက်နှာ', route: 'home' },
     { label: 'About Us', sub: 'ကျွန်ုပ်တို့အကြောင်း', route: 'about' },
-    { label: 'Our Services', sub: 'ဝန်ဆောင်မှုများ', route: 'services' },
-    { label: 'Content', sub: 'သတင်းနှင့် ဆောင်းပါးများ', route: 'blog' },
+    { label: 'Services', sub: 'ဝန်ဆောင်မှုများ', route: 'services' },
+    { label: 'Insights', sub: 'သတင်းနှင့် ဆောင်းပါးများ', route: 'blog' },
     { label: 'Contact Us', sub: 'ဆက်သွယ်ရန်', route: 'contact' },
   ];
 
@@ -102,15 +102,6 @@ export const Navbar: React.FC = () => {
               <MessageCircle className="w-3.5 h-3.5" />
               <span>အခမဲ့ တိုင်ပင်ရန်</span>
             </button>
-
-            <button
-              onClick={() => handleNav('admin')}
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
-              title="Admin Dashboard"
-              aria-label="Admin Dashboard"
-            >
-              <ShieldCheck className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Mobile hamburger button */}
@@ -174,16 +165,6 @@ export const Navbar: React.FC = () => {
                 <Phone className="w-3.5 h-3.5" />
                 <span>{settings.phone}</span>
               </a>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  handleNav('admin');
-                }}
-                className="inline-flex items-center gap-1 hover:text-slate-800"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Admin Login</span>
-              </button>
             </div>
           </div>
         </div>

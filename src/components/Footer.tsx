@@ -131,7 +131,7 @@ export const Footer: React.FC = () => {
                   onClick={() => navigateTo('services')}
                   className="hover:text-white text-slate-400 transition-colors flex items-center gap-2"
                 >
-                  <span className="font-medium">Our Services</span>
+                  <span className="font-medium">Services</span>
                   <span className="text-xs text-slate-500 font-burmese">(ဝန်ဆောင်မှုများ)</span>
                 </button>
               </li>
@@ -140,7 +140,7 @@ export const Footer: React.FC = () => {
                   onClick={() => navigateTo('blog')}
                   className="hover:text-white text-slate-400 transition-colors flex items-center gap-2"
                 >
-                  <span className="font-medium">Content</span>
+                  <span className="font-medium">Insights</span>
                   <span className="text-xs text-slate-500 font-burmese">(သတင်းနှင့် ဆောင်းပါးများ)</span>
                 </button>
               </li>
@@ -247,12 +247,6 @@ export const Footer: React.FC = () => {
               className="hover:text-white transition-colors"
             >
               Disclaimer
-            </button>
-            <button
-              onClick={() => navigateTo('admin')}
-              className="hover:text-white text-slate-500 transition-colors"
-            >
-              Admin Portal
             </button>
           </div>
         </div>
