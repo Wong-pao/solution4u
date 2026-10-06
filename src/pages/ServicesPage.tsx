@@ -126,11 +126,11 @@ export const ServicesPage: React.FC = () => {
                       }}
                     />
                     {/* Subtle soft gradient base behind the floating panel */}
-                    <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/25 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-slate-950/20 to-transparent pointer-events-none" />
 
                     {/* Premium Floating Glass Summary Panel - Short Summary ONLY */}
-                    <div className="absolute inset-x-2.5 bottom-2.5 sm:inset-x-3.5 sm:bottom-3.5 p-2.5 sm:p-3 rounded-xl bg-[#0c2340]/80 backdrop-blur-md border border-white/20 shadow-md shadow-sky-950/25 pointer-events-none">
-                      <p className="text-xs sm:text-[13px] text-white/95 font-medium leading-relaxed font-burmese line-clamp-2">
+                    <div className="absolute inset-x-2.5 bottom-2.5 sm:inset-x-3.5 sm:bottom-3.5 p-2.5 sm:p-3 rounded-xl bg-[#0c2340]/35 backdrop-blur-sm border border-white/20 shadow-xs shadow-slate-950/15 pointer-events-none">
+                      <p className="text-xs sm:text-[13px] text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] font-medium leading-relaxed font-burmese line-clamp-2">
                         {svc.shortDescription}
                       </p>
                     </div>
