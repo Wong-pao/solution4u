@@ -294,7 +294,7 @@ export const HomePageEditor: React.FC = () => {
               Hero Section နှင့် ဝန်ဆောင်မှု ခေါင်းစဉ်များ ပြင်ဆင်ရန် အသိပေးချက်:
             </p>
             <p className="text-slate-600 leading-relaxed text-[11px]">
-              မူလစာမျက်နှာ (Homepage) ထိပ်ဆုံးရှိ <b>Hero Headline၊ Supporting Text၊ Trust Statement၊ Emotional Quote၊ Hero Banner ဓာတ်ပုံ</b> နှင့် <b>Services Section ခေါင်းစဉ်ကြီးများ</b> ကို <b>"၆။ Global Settings"</b> တွင်လည်းကောင်း၊ <b>Knowledge Center၊ Facebook Update၊ Brand Profile နှင့် Emotional CTA</b> စာသားများကို <b>"၇။ Static Page Content"</b> တွင်လည်းကောင်း စီမံနိုင်ပါသည်။ ဤ Tab တွင် Homepage သီးသန့်ဖြစ်သော <b>Trust Pillars (Why Us ၅ ချက်)</b> နှင့် <b>Simple Workflow (လုပ်ငန်းစဉ် ၅ ဆင့်)</b> တို့ကို အသေးစိတ် ပြင်ဆင်နိုင်ပါသည်။
+              မူလစာမျက်နှာ (Homepage) ထိပ်ဆုံးရှိ <b>Hero Headline၊ Supporting Text၊ Trust Statement၊ Emotional Quote၊ Hero Banner ဓာတ်ပုံ</b> နှင့် <b>Services Section ခေါင်းစဉ်ကြီးများ</b> ကို <b>"Global Settings → General & Hero Settings"</b> တွင်လည်းကောင်း၊ <b>Knowledge Center၊ Facebook Update၊ Brand Profile နှင့် Emotional CTA</b> စာသားများကို <b>"Global Settings → Page Headings & Section Copy"</b> တွင်လည်းကောင်း စီမံနိုင်ပါသည်။ ဤ Tab တွင် Homepage သီးသန့်ဖြစ်သော <b>Trust Pillars (Why Us ၅ ချက်)</b> နှင့် <b>Simple Workflow (လုပ်ငန်းစဉ် ၅ ဆင့်)</b> တို့ကို အသေးစိတ် ပြင်ဆင်နိုင်ပါသည်။
             </p>
           </div>
         </div>
