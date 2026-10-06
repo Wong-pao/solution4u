@@ -231,19 +231,19 @@ export const Footer: React.FC = () => {
           <p className="text-center sm:text-left">© {new Date().getFullYear()} Solution for You (အဖြေက ဒီမှာပါ). All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 sm:gap-6">
             <button
-              onClick={() => setActiveModal('privacy')}
+              onClick={() => navigateTo('privacy-policy')}
               className="hover:text-white transition-colors"
             >
               Privacy Policy
             </button>
             <button
-              onClick={() => setActiveModal('terms')}
+              onClick={() => navigateTo('terms-of-service')}
               className="hover:text-white transition-colors"
             >
               Terms of Service
             </button>
             <button
-              onClick={() => setActiveModal('disclaimer')}
+              onClick={() => navigateTo('disclaimer')}
               className="hover:text-white transition-colors"
             >
               Disclaimer

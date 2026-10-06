@@ -10,6 +10,7 @@ import {
   WorkflowStepsContent,
   StaticPageContent,
   ContactPageContent,
+  LegalPagesContent,
 } from '../types';
 import {
   dataStore,
@@ -32,8 +33,20 @@ import {
   INITIAL_STATIC_PAGE_CONTENT,
   INITIAL_CONTACT_CONTENT,
 } from '../data/initialData';
+import { INITIAL_LEGAL_PAGES_CONTENT } from '../pages/LegalPages';
 
-export type AppRoute = 'home' | 'about' | 'services' | 'service-detail' | 'blog' | 'blog-detail' | 'contact' | 'admin';
+export type AppRoute =
+  | 'home'
+  | 'about'
+  | 'services'
+  | 'service-detail'
+  | 'blog'
+  | 'blog-detail'
+  | 'contact'
+  | 'admin'
+  | 'privacy-policy'
+  | 'terms-of-service'
+  | 'disclaimer';
 
 interface AppContextType {
   currentRoute: AppRoute;
@@ -48,6 +61,7 @@ interface AppContextType {
   workflowStepsContent: WorkflowStepsContent;
   staticPageContent: StaticPageContent;
   contactContent: ContactPageContent;
+  legalPagesContent: LegalPagesContent;
   isLoading: boolean;
   adminUserEmail: string | null;
   isAdminLoggedIn: boolean;
@@ -66,6 +80,7 @@ interface AppContextType {
   updateWorkflowSteps: (content: WorkflowStepsContent) => Promise<void>;
   updateStaticPageContent: (content: StaticPageContent) => Promise<void>;
   updateContactContent: (content: ContactPageContent) => Promise<void>;
+  updateLegalPagesContent: (content: LegalPagesContent) => Promise<void>;
   isConsultModalOpen: boolean;
   openConsultModal: (serviceName?: string) => void;
   closeConsultModal: () => void;
@@ -87,6 +102,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workflowStepsContent, setWorkflowStepsContent] = useState<WorkflowStepsContent>(INITIAL_WORKFLOW_STEPS);
   const [staticPageContent, setStaticPageContent] = useState<StaticPageContent>(INITIAL_STATIC_PAGE_CONTENT);
   const [contactContent, setContactContent] = useState<ContactPageContent>(INITIAL_CONTACT_CONTENT);
+  const [legalPagesContent, setLegalPagesContent] = useState<LegalPagesContent>(INITIAL_LEGAL_PAGES_CONTENT);
   const [isLoading, setIsLoading] = useState(true);
   const [adminUserEmail, setAdminUserEmail] = useState<string | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
@@ -118,6 +134,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else if (hash === '/contact') {
         setCurrentRoute('contact');
         setCurrentSlug(null);
+      } else if (hash === '/privacy-policy') {
+        setCurrentRoute('privacy-policy');
+        setCurrentSlug(null);
+      } else if (hash === '/terms-of-service') {
+        setCurrentRoute('terms-of-service');
+        setCurrentSlug(null);
+      } else if (hash === '/disclaimer') {
+        setCurrentRoute('disclaimer');
+        setCurrentSlug(null);
       } else if (hash === '/admin' || hash.startsWith('/admin')) {
         setCurrentRoute('admin');
         setCurrentSlug(null);
@@ -126,7 +151,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
   }, []);
 
   // Synchronize dynamic document title & SEO meta tags per route
@@ -174,6 +203,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         title = 'ဆက်သွယ်ရန် (Contact Us) | Solution for You - အဖြေက ဒီမှာပါ';
         description = 'Messenger၊ ဖုန်းနံပါတ်၊ LINE၊ Telegram နှင့် အီးမေးလ် တို့မှတစ်ဆင့် Solution for You သို့ အခမဲ့ တိုက်ရိုက် ဆက်သွယ်တိုင်ပင်နိုင်ပါသည်။';
         break;
+      case 'privacy-policy':
+        title = 'Privacy Policy | Solution for You - အဖြေက ဒီမှာပါ';
+        break;
+      case 'terms-of-service':
+        title = 'Terms of Service | Solution for You - အဖြေက ဒီမှာပါ';
+        break;
+      case 'disclaimer':
+        title = 'Disclaimer | Solution for You - အဖြေက ဒီမှာပါ';
+        break;
       case 'admin':
         title = 'Admin CMS Portal | Solution for You';
         break;
@@ -218,6 +256,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     else if (route === 'blog') hash = '#/blog';
     else if (route === 'blog-detail') hash = `#/blog/${slug || ''}`;
     else if (route === 'contact') hash = '#/contact';
+    else if (route === 'privacy-policy') hash = '#/privacy-policy';
+    else if (route === 'terms-of-service') hash = '#/terms-of-service';
+    else if (route === 'disclaimer') hash = '#/disclaimer';
     else if (route === 'admin') hash = '#/admin';
 
     if (window.location.hash !== hash) {
@@ -237,6 +278,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchedWorkflow,
         fetchedStatic,
         fetchedContact,
+        fetchedLegalPages,
       ] = await Promise.all([
         dataStore.getPosts(),
         servicesApi.getServices(true),
@@ -247,6 +289,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         siteContentApi.getSiteContent<WorkflowStepsContent>('home_workflow_steps', INITIAL_WORKFLOW_STEPS),
         siteContentApi.getSiteContent<StaticPageContent>('static_page_content', INITIAL_STATIC_PAGE_CONTENT),
         siteContentApi.getSiteContent<ContactPageContent>('contact_page', INITIAL_CONTACT_CONTENT),
+        siteContentApi.getSiteContent<LegalPagesContent>('legal_pages', INITIAL_LEGAL_PAGES_CONTENT),
       ]);
       setPosts(fetchedPosts);
       setServices(fetchedServices);
@@ -257,6 +300,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setWorkflowStepsContent(fetchedWorkflow);
       setStaticPageContent(fetchedStatic);
       setContactContent(fetchedContact);
+      setLegalPagesContent({
+        privacyPolicy: {
+          ...INITIAL_LEGAL_PAGES_CONTENT.privacyPolicy,
+          ...(fetchedLegalPages?.privacyPolicy || {}),
+        },
+        termsOfService: {
+          ...INITIAL_LEGAL_PAGES_CONTENT.termsOfService,
+          ...(fetchedLegalPages?.termsOfService || {}),
+        },
+        disclaimer: {
+          ...INITIAL_LEGAL_PAGES_CONTENT.disclaimer,
+          ...(fetchedLegalPages?.disclaimer || {}),
+        },
+      });
     } catch (err) {
       console.error('Failed to load initial data:', err);
     } finally {
@@ -401,6 +458,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setContactContent(content);
   };
 
+  const updateLegalPagesContent = async (content: LegalPagesContent) => {
+    const ok = await siteContentApi.upsertSiteContent('legal_pages', 'legal', content);
+    if (!ok) {
+      throw new Error(
+        'Supabase သို့ သိမ်းဆည်းရာတွင် အမှားဖြစ်ပွားခဲ့ပါသည်။ Admin အကောင့် ဝင်ထားကြောင်း စစ်ဆေးပေးပါ။'
+      );
+    }
+    setLegalPagesContent(content);
+  };
+
   const openConsultModal = (serviceName?: string) => {
     setConsultServicePreselect(serviceName || '');
     setIsConsultModalOpen(true);
@@ -429,6 +496,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         workflowStepsContent,
         staticPageContent,
         contactContent,
+        legalPagesContent,
         isLoading,
         adminUserEmail,
         isAdminLoggedIn,
@@ -447,6 +515,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateWorkflowSteps,
         updateStaticPageContent,
         updateContactContent,
+        updateLegalPagesContent,
         isConsultModalOpen,
         openConsultModal,
         closeConsultModal,

@@ -331,3 +331,17 @@ export interface StaticPageContent {
   articleCtaPrimaryBtn?: string;
   articleCtaSecondaryBtn?: string;
 }
+
+export interface LegalDocumentData {
+  title: string;
+  content: string;
+  updatedAt?: string;
+}
+
+export interface LegalPagesContent {
+  privacyPolicy: LegalDocumentData;
+  termsOfService: LegalDocumentData;
+  disclaimer: LegalDocumentData;
+}
+
+

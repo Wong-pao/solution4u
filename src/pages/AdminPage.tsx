@@ -16,6 +16,7 @@ import { ServicesEditor } from '../components/admin/ServicesEditor';
 import { InquiriesInbox } from '../components/admin/InquiriesInbox';
 import { StaticContentEditor } from '../components/admin/StaticContentEditor';
 import { ContactPageEditor } from '../components/admin/ContactPageEditor';
+import { LegalPagesEditor } from '../components/admin/LegalPagesEditor';
 import {
   ShieldCheck,
   Lock,
@@ -46,7 +47,8 @@ import {
   Phone,
   Info,
   Home,
-  Inbox
+  Inbox,
+  Scale
 } from 'lucide-react';
 
 export const AdminPage: React.FC = () => {
@@ -72,7 +74,17 @@ export const AdminPage: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'home-page' | 'about-us' | 'our-services' | 'posts' | 'new-post' | 'contact-us' | 'global-settings' | 'static-content' | 'inquiries' | 'database'
+    | 'home-page'
+    | 'about-us'
+    | 'our-services'
+    | 'posts'
+    | 'new-post'
+    | 'contact-us'
+    | 'global-settings'
+    | 'static-content'
+    | 'legal-pages'
+    | 'inquiries'
+    | 'database'
   >('home-page');
 
   // Editing state for posts
@@ -164,7 +176,15 @@ export const AdminPage: React.FC = () => {
     setDownloadSuccessMsg(null);
     setDownloadErrorMsg(null);
     try {
-      const blob = await generateClientSideSourceZip((msg) => setExportProgressText(msg));
+      const exporterSelfMap = import.meta.glob<string>('/src/lib/projectExporter.ts', {
+        query: '?raw',
+        eager: true,
+        import: 'default',
+      });
+      const { blob, fileCount } = await generateClientSideSourceZip(
+        (msg) => setExportProgressText(msg),
+        exporterSelfMap
+      );
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -173,10 +193,14 @@ export const AdminPage: React.FC = () => {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => window.URL.revokeObjectURL(blobUrl), 4000);
-      setDownloadSuccessMsg(`Source Code ZIP အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ (${(blob.size / (1024 * 1024)).toFixed(1)} MB)`);
+      setDownloadSuccessMsg(
+        `Source Code ZIP အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ (${fileCount} files verified · ${(blob.size / (1024 * 1024)).toFixed(1)} MB)`
+      );
     } catch (err: any) {
       console.error('JSZip generation failed:', err);
-      setDownloadErrorMsg('ZIP ထုတ်ပိုးရာတွင် အမှားဖြစ်သွားပါသည်။ New Tab Link ဖြင့် ဒေါင်းလုဒ်ဆွဲပေးပါ။');
+      setDownloadErrorMsg(
+        err.message || 'ZIP ထုတ်ပိုးရာတွင် အမှားဖြစ်သွားပါသည်။'
+      );
     } finally {
       setIsExportingClientZip(false);
       setExportProgressText('');
@@ -609,6 +633,18 @@ export const AdminPage: React.FC = () => {
                 >
                   <Type className="w-3.5 h-3.5" />
                   <span>၇။ Static Page Content</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('legal-pages')}
+                  className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'legal-pages'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                  }`}
+                >
+                  <Scale className="w-3.5 h-3.5" />
+                  <span>Legal Pages</span>
                 </button>
               </div>
             </div>
@@ -1223,6 +1259,11 @@ export const AdminPage: React.FC = () => {
       {/* Tab 7: STATIC PAGE CONTENT CMS */}
       {activeTab === 'static-content' && (
         <StaticContentEditor />
+      )}
+
+      {/* Tab: LEGAL PAGES CMS */}
+      {activeTab === 'legal-pages' && (
+        <LegalPagesEditor />
       )}
 
       {/* Tab 8: SUPABASE CLOUD SYNC & SCHEMA & DOWNLOAD */}

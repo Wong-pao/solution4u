@@ -12,6 +12,7 @@ import { ServiceDetailPage } from './pages/ServiceDetailPage';
 import { BlogPage } from './pages/BlogPage';
 import { BlogDetailPage } from './pages/BlogDetailPage';
 import { ContactPage } from './pages/ContactPage';
+import { PrivacyPolicyPage, TermsOfServicePage, DisclaimerPage } from './pages/LegalPages';
 
 // Lazy-load AdminPage so admin modules, project exporter, and editors are not loaded by public visitors
 const AdminPage = React.lazy(() =>
@@ -37,6 +38,12 @@ function AppContent() {
         return <BlogDetailPage />;
       case 'contact':
         return <ContactPage />;
+      case 'privacy-policy':
+        return <PrivacyPolicyPage />;
+      case 'terms-of-service':
+        return <TermsOfServicePage />;
+      case 'disclaimer':
+        return <DisclaimerPage />;
       case 'admin':
         return (
           <React.Suspense

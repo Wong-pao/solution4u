@@ -555,3 +555,5 @@ export const INITIAL_CONTACT_CONTENT: ContactPageContent = {
   invalidPhoneMessage: "ကျေးဇူးပြု၍ မှန်ကန်သော ဖုန်းနံပါတ် ရိုက်ထည့်ပေးပါ",
   errorMessage: "မက်ဆေ့ခ်ျ ပေးပို့ရာတွင် အဆင်မပြေဖြစ်သွားပါသည်- ကျေးဇူးပြု၍ အထက်ပါ Messenger၊ ဖုန်း၊ LINE သို့မဟုတ် Telegram ဖြင့် တိုက်ရိုက်ဆက်သွယ်ပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။",
 };
+
+
